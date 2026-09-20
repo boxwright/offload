@@ -1,0 +1,9 @@
+Offload
+Copyright 2026 Boxwright
+
+"Offload" and "Boxwright" are trademarks of their owner. The Apache License does not grant permission to
+use them, except as needed to describe the origin of the work.
+
+Offload works with Claude Code, which is Anthropic's software and is not included here. The sandbox image
+downloads it from Anthropic's installer when you build the image. Offload is not affiliated with or endorsed
+by Anthropic.

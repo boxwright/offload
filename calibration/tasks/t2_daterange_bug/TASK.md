@@ -1,0 +1,2 @@
+`daterange.py` has bugs. `test_daterange.py` currently fails. Fix `daterange.py` so all tests pass without changing the function's public signature or the tests.
+Run `python3 -m pytest -q` to check. Do not edit test_daterange.py. Stop when the tests pass.

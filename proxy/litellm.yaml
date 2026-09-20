@@ -1,0 +1,11 @@
+# The local model, as the sandboxed worker sees it. api_base and the model id come from the environment
+# so the same image works with llama.cpp, vLLM, LM Studio or Ollama.
+model_list:
+  - model_name: local-model
+    litellm_params:
+      model: os.environ/LOCAL_MODEL_ID
+      api_base: os.environ/LOCAL_MODEL_BASE
+      api_key: local
+litellm_settings:
+  drop_params: true
+  callbacks: hoist_system.proxy_handler_instance

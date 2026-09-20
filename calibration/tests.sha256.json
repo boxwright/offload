@@ -1,0 +1,7 @@
+{
+ "t1_slugify/test_slug.py": "2ee3c3df3b5367025bb446139897e26efc5f18f742dcc14928f579265e8ca575",
+ "t2_daterange_bug/test_daterange.py": "5ee11e140c930af76f57aa1659c54ccaf190e155cf6fbf3b9ea23e2da72c62e7",
+ "t3_wordfreq_cli/test_wordfreq.py": "00e1fb5ff06f508cf242f477eebcefcbd98143e7af519c0620c798a9b36da964",
+ "t4_refactor_report/test_report.py": "5fa775037311aac12f98da77061c2f01ceef2a8381546f25d7283b4266f7191a",
+ "t5_lru/test_lru.py": "d29b54e199bc16cb299a936b480e507e01fc2233182c22bc80eb2e8929145fef"
+}

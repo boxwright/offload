@@ -1,0 +1,2 @@
+Implement class `LRU` in `lru.py`: `LRU(capacity: int)`, `get(key)` returns the value or `None` and marks the key most recently used, `put(key, value)` inserts or updates and marks most recently used, evicting the least recently used entry when over capacity. `keys()` returns keys from least to most recently used. `capacity <= 0` raises `ValueError`. Both operations must be O(1); do not use a list scan per operation (use a dict plus a doubly linked list, or OrderedDict).
+Run `python3 -m pytest -q` to check. Do not edit test_lru.py. Stop when the tests pass.

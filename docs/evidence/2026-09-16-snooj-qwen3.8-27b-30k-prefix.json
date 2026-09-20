@@ -1,0 +1,105 @@
+{
+ "base": "http://127.0.0.1:8080/v1",
+ "model": "qwen",
+ "effort": "medium",
+ "turn1_cold": {
+  "wall_s": 12.04,
+  "usage": {
+   "completion_tokens": 48,
+   "prompt_tokens": 33360,
+   "total_tokens": 33408,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   }
+  },
+  "timings": {
+   "cache_n": 0,
+   "prompt_n": 33360,
+   "prompt_ms": 11519.912,
+   "prompt_per_token_ms": 0.345321103117506,
+   "prompt_per_second": 2895.855454451388,
+   "predicted_n": 48,
+   "predicted_ms": 393.107,
+   "predicted_per_token_ms": 8.189729166666668,
+   "predicted_per_second": 122.10415993609881,
+   "draft_n": 42,
+   "draft_n_accepted": 32
+  },
+  "answer": ""
+ },
+ "turn2_cached": {
+  "wall_s": 0.55,
+  "usage": {
+   "completion_tokens": 48,
+   "prompt_tokens": 33382,
+   "total_tokens": 33430,
+   "prompt_tokens_details": {
+    "cached_tokens": 33356
+   }
+  },
+  "timings": {
+   "cache_n": 33356,
+   "prompt_n": 26,
+   "prompt_ms": 72.35,
+   "prompt_per_token_ms": 2.7826923076923076,
+   "prompt_per_second": 359.364201796821,
+   "predicted_n": 48,
+   "predicted_ms": 441.635,
+   "predicted_per_token_ms": 9.200729166666667,
+   "predicted_per_second": 108.68703793856919,
+   "draft_n": 48,
+   "draft_n_accepted": 30
+  },
+  "answer": ""
+ },
+ "turn3_cached": {
+  "wall_s": 0.54,
+  "usage": {
+   "completion_tokens": 48,
+   "prompt_tokens": 33403,
+   "total_tokens": 33451,
+   "prompt_tokens_details": {
+    "cached_tokens": 33356
+   }
+  },
+  "timings": {
+   "cache_n": 33356,
+   "prompt_n": 47,
+   "prompt_ms": 78.17,
+   "prompt_per_token_ms": 1.6631914893617021,
+   "prompt_per_second": 601.2536778815402,
+   "predicted_n": 48,
+   "predicted_ms": 427.916,
+   "predicted_per_token_ms": 8.914916666666667,
+   "predicted_per_second": 112.17154768692922,
+   "draft_n": 46,
+   "draft_n_accepted": 31
+  },
+  "answer": ""
+ },
+ "decode_400": {
+  "wall_s": 2.96,
+  "usage": {
+   "completion_tokens": 306,
+   "prompt_tokens": 45,
+   "total_tokens": 351,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   }
+  },
+  "timings": {
+   "cache_n": 0,
+   "prompt_n": 45,
+   "prompt_ms": 75.497,
+   "prompt_per_token_ms": 1.6777111111111112,
+   "prompt_per_second": 596.0501741791064,
+   "predicted_n": 306,
+   "predicted_ms": 2369.117,
+   "predicted_per_token_ms": 7.742212418300654,
+   "predicted_per_second": 129.16204645021753,
+   "draft_n": 306,
+   "draft_n_accepted": 204
+  },
+  "answer": "Maintaining a home server means keeping an eye on disk health, applying updates,"
+ }
+}

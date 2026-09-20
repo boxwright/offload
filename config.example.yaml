@@ -1,0 +1,33 @@
+# Offload settings. Every key is optional; these are the defaults.
+# Put your own values in ~/.config/offload/config.yaml (or point OFFLOAD_CONFIG at a file).
+
+# jobs_root: ~/.local/share/offload/jobs
+# budget_file: ~/.config/offload/budget.yaml
+# repositories intake may choose from
+# repos_file: ~/.config/offload/repos.yaml
+# from `claude setup-token`; chmod 600
+# token_file: ~/.config/offload/claude-token
+# optional; chmod 600
+# webhook_file: ~/.config/offload/discord-webhook
+# ledger: ~/.local/state/offload/ledger.jsonl
+# pause_file: ~/.local/state/offload/PAUSE
+# sandbox_image: offload-sandbox:latest
+# the network the proxy is on
+# docker_network: offload_net
+# the proxy, as seen from that network
+# proxy_url: http://offload-proxy:4000
+# the model name the proxy exposes
+# local_model_name: local-model
+# local_max_turns: 40
+# claude_tools: "Read,Glob,Grep,Edit,Write,Bash(python3 *),Bash(python *),Bash(pytest *),Bash(git diff *),Bash(git status *),Bash(git log *),Bash(ls *),Bash(cat *)"
+# local_tools: "Read,Glob,Grep,Edit,Write,Bash(python3 *),Bash(python *),Bash(pytest *),Bash(git diff *),Bash(git status *),Bash(git log *),Bash(ls *),Bash(cat *),Bash(head *),Bash(tail *),Bash(wc *),Bash(grep *),Bash(find *),Bash(mkdir *),Bash(sed *),Bash(diff *)"
+# the author of the one commit per job
+# git_user_name: offload
+# git_user_email: offload@localhost
+# True runs the test command outside the sandbox
+# run_tests_on_host: false
+# prepended to PATH when run_tests_on_host is true
+# host_test_path: ""
+# step_timeout: 1200
+# max_test_fails: 3
+# gate_wait_s: 86400

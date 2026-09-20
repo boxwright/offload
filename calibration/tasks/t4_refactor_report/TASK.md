@@ -1,0 +1,2 @@
+`report.py` works and `test_report.py` passes, but the three `render_*` functions duplicate the same row-formatting logic. Refactor so the formatting exists once (one helper used by all three), behaviour unchanged, tests still green. The word `TOTAL` must still appear exactly as before.
+Run `python3 -m pytest -q` to check. Do not edit test_report.py. Stop when the tests pass and the duplication is gone.

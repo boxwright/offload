@@ -1,0 +1,3 @@
+Write `wordfreq.py`: a command-line tool. Usage: `python3 wordfreq.py [-n N] FILE...`.
+It reads the files, splits on non-letter characters, lowercases, counts words, and prints the top N (default 10) as lines `word count`, most frequent first; ties broken alphabetically. Exit code 2 and a message on stderr if a file does not exist. Expose `top_words(paths, n) -> list[tuple[str,int]]` for import.
+Run `python3 -m pytest -q` to check. Do not edit test_wordfreq.py. Stop when the tests pass.

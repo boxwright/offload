@@ -1,0 +1,44 @@
+# Offload model stack: a llama.cpp server for the local model, and the translation proxy in front of it.
+# Both bind to loopback or the private Docker network only. Nothing here listens on your LAN.
+# Settings marked MEASURED produced the numbers in docs/hardware.md on an RTX 5090 32 GB.
+name: offload
+services:
+  model:
+    image: ${OFFLOAD_LLAMA_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    container_name: offload-model
+    restart: unless-stopped
+    ports: ["127.0.0.1:${OFFLOAD_MODEL_PORT:-8080}:8080"]
+    volumes: ["${OFFLOAD_HOME}/models:/models:ro"]
+    deploy:
+      resources:
+        limits: { memory: "${OFFLOAD_MODEL_RAM:-40G}" }          # a hard cap: a runaway cache cannot take the host down
+        reservations: { devices: [ { driver: nvidia, count: all, capabilities: [gpu] } ] }
+    command: >
+      -m /models/${OFFLOAD_MODEL_FILE}
+      --host 0.0.0.0 --port 8080 -ngl 99 -fa on --jinja
+      -c ${OFFLOAD_CONTEXT:-65536}
+      --cache-type-k q8_0 --cache-type-v q8_0
+      -np 1 --no-context-shift
+      --cache-ram ${OFFLOAD_CACHE_RAM_MB:-12288}
+      --reasoning-budget 3072 --n-predict 16384
+      --temp 0.6 --top-p 0.95 --top-k 20
+      ${OFFLOAD_SPEC_ARGS:-}
+    healthcheck: { test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/health"], interval: 15s, timeout: 5s, retries: 20, start_period: 120s }
+  proxy:
+    build: ../proxy
+    image: offload-proxy:1.101.0
+    container_name: offload-proxy
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 256
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges"]
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      LOCAL_MODEL_ID: openai/${OFFLOAD_MODEL_FILE}
+      LOCAL_MODEL_BASE: http://model:8080/v1
+    depends_on: { model: { condition: service_healthy } }
+networks:
+  default: { name: offload_net }

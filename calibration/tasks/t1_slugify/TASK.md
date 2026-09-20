@@ -1,0 +1,3 @@
+Implement `slugify(text: str) -> str` in `slug.py` in this directory so that `test_slug.py` passes.
+Rules: lowercase; replace any run of characters that are not ASCII letters or digits with a single hyphen; strip leading and trailing hyphens; accented Latin letters are transliterated to their base letter (é->e, ñ->n, ü->u); an empty result returns "n-a".
+Run `python3 -m pytest -q` to check. Do not edit test_slug.py. Stop when the tests pass.

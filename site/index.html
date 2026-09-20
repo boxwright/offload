@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Offload: the model on your own GPU does the typing. Claude only plans, reviews and rescues. Open source, with receipts.">
+<title>Offload by Boxwright</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Big+Shoulders+Display:wght@600;800;900&family=Martian+Mono:wght@400;600&display=swap">
+<style>
+/* Machinist's bench: layout-dye blue ground, scribed steel lines, brass for every measured number. */
+:root {
+  --ground: #16304d;        /* layout dye */
+  --ground-deep: #0f2439;
+  --plate: #1d3d61;         /* a raised plate on the bench */
+  --scribe: #9fb6cc;        /* scribed steel line */
+  --scribe-faint: rgba(159, 182, 204, 0.22);
+  --ink: #e6eef6;
+  --ink-soft: #b4c6d8;
+  --brass: #d9b45a;
+  --brass-deep: #b08a2e;
+  --stop: #ef8354;          /* the one warning hue */
+  --go: #8fd0a6;
+  --term-ground: #0b1a2a;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", Verdana, sans-serif;
+  --mono: "Martian Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground: #e7edf2; --ground-deep: #d8e1e9; --plate: #f4f7fa; --scribe: #4d6a87;
+    --scribe-faint: rgba(31, 58, 95, 0.16); --ink: #14283f; --ink-soft: #40566e;
+    --brass: #8a6a16; --brass-deep: #6f5410; --stop: #b9471b; --go: #1f7a48; --term-ground: #10243a;
+  }
+}
+:root[data-theme="light"] {
+  --ground: #e7edf2; --ground-deep: #d8e1e9; --plate: #f4f7fa; --scribe: #4d6a87;
+  --scribe-faint: rgba(31, 58, 95, 0.16); --ink: #14283f; --ink-soft: #40566e;
+  --brass: #8a6a16; --brass-deep: #6f5410; --stop: #b9471b; --go: #1f7a48; --term-ground: #10243a;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink);
+  font: 400 1.0625rem/1.6 var(--body);
+  background-image:
+    linear-gradient(var(--scribe-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--scribe-faint) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+a { color: var(--brass); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.wrap { max-width: 1120px; margin-inline: auto; padding-inline: clamp(16px, 4vw, 40px); }
+
+/* The steel rule along the top edge: ticks every 8px, a long one every 48. */
+.rule {
+  height: 22px; background-color: var(--ground-deep); border-bottom: 1px solid var(--scribe);
+  background-image:
+    repeating-linear-gradient(90deg, var(--scribe) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(90deg, var(--scribe-faint) 0 1px, transparent 1px 8px);
+  background-size: 100% 100%, 100% 9px; background-repeat: no-repeat; background-position: 0 0, 0 100%;
+}
+
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px 32px; padding-block: 22px; }
+.mark { font: 900 1.9rem/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
+.mark small { font: 400 0.8rem/1 var(--mono); letter-spacing: 0.04em; color: var(--ink-soft); text-transform: none; margin-left: 10px; }
+nav { display: flex; flex-wrap: wrap; gap: 6px 22px; font: 400 0.78rem/1.4 var(--mono); }
+nav a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px solid var(--scribe-faint); padding-bottom: 2px; }
+nav a:hover { color: var(--brass); border-color: var(--brass); }
+
+.hero { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: clamp(24px, 4vw, 56px); align-items: start; padding-block: clamp(20px, 4vw, 48px) 40px; }
+h1 { font: 900 clamp(3rem, 8.2vw, 6.4rem)/0.9 var(--display); letter-spacing: 0.01em; text-transform: uppercase; margin: 0 0 22px; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--brass); }
+.lede { max-width: 34em; color: var(--ink-soft); margin: 0 0 26px; }
+.lede strong { color: var(--ink); }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { font: 600 0.8rem/1 var(--mono); padding: 14px 18px; border: 1px solid var(--scribe); color: var(--ink); text-decoration: none; background: transparent; cursor: pointer; }
+.btn.primary { background: var(--brass); border-color: var(--brass); color: #14283f; }
+.btn:hover { border-color: var(--brass); }
+
+/* Terminal: a real captured session. */
+.term { background: var(--term-ground); border: 1px solid var(--scribe); box-shadow: 8px 8px 0 var(--ground-deep); color: #d5e2ee; min-width: 0; }
+.term-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 12px; border-bottom: 1px solid rgba(159,182,204,.3); font: 400 0.68rem/1.3 var(--mono); color: #9fb6cc; }
+.term-bar button { font: 600 0.68rem/1 var(--mono); color: #0b1a2a; background: #d9b45a; border: 0; padding: 7px 10px; cursor: pointer; }
+.term pre { margin: 0; padding: 14px; font: 400 0.72rem/1.65 var(--mono); overflow-x: auto; height: 27.5em; overflow-y: auto; white-space: pre; }
+.term .p { color: #d9b45a; } .term .c { color: #ffffff; } .term .dim { color: #7f97ad; } .term .ok { color: #8fd0a6; } .term .num { color: #d9b45a; }
+
+/* The split bar, drawn to scale. */
+.split { margin-block: 8px 56px; }
+.split-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px; font: 400 0.78rem/1.5 var(--mono); color: var(--ink-soft); margin-bottom: 10px; }
+.bar { display: flex; height: 46px; border: 1px solid var(--scribe); }
+.bar span { display: flex; align-items: center; padding-inline: 12px; font: 600 0.78rem/1 var(--mono); white-space: nowrap; overflow: hidden; }
+.bar .local { flex: 740; background: repeating-linear-gradient(135deg, var(--plate) 0 10px, transparent 10px 20px); color: var(--ink); }
+.bar .paid { flex: 36; background: var(--brass); color: #14283f; padding-inline: 4px; justify-content: center; }
+.split-foot { font: 400 0.78rem/1.6 var(--mono); color: var(--ink-soft); margin-top: 10px; }
+.split-foot b { color: var(--brass); font-weight: 600; }
+
+section { padding-block: clamp(36px, 6vw, 72px); border-top: 1px solid var(--scribe-faint); }
+h2 { font: 800 clamp(2rem, 4.4vw, 3.2rem)/0.95 var(--display); text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 10px; text-wrap: balance; }
+.kicker { font: 400 0.78rem/1.5 var(--mono); color: var(--brass); margin: 0 0 12px; }
+.intro { max-width: 40em; color: var(--ink-soft); margin: 0 0 30px; }
+
+/* Checker */
+.check { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: clamp(20px, 3vw, 40px); }
+.fields { display: grid; gap: 16px; align-content: start; }
+.field label { display: block; font: 400 0.74rem/1.4 var(--mono); color: var(--ink-soft); margin-bottom: 6px; }
+.field select { width: 100%; font: 400 1rem/1.3 var(--body); padding: 12px; color: var(--ink); background: var(--plate); border: 1px solid var(--scribe); border-radius: 0; }
+.verdict { background: var(--plate); border: 1px solid var(--scribe); padding: clamp(18px, 3vw, 28px); min-width: 0; }
+.verdict h3 { font: 800 1.9rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 14px; }
+.verdict h3.yes { color: var(--go); } .verdict h3.maybe { color: var(--brass); } .verdict h3.no { color: var(--stop); }
+.verdict ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; font-size: 0.97rem; }
+.verdict li { display: grid; grid-template-columns: 5.2em 1fr; gap: 10px; }
+.verdict li > span:first-child { font: 600 0.68rem/1.9 var(--mono); }
+.t-ok { color: var(--go); } .t-warn { color: var(--brass); } .t-miss { color: var(--stop); }
+.verdict p.note { font: 400 0.74rem/1.6 var(--mono); color: var(--ink-soft); margin: 16px 0 0; }
+
+/* How it works */
+.flow { overflow-x: auto; }
+.flow svg { display: block; min-width: 760px; width: 100%; height: auto; }
+.flow text { font-family: var(--mono); font-size: 12px; fill: var(--ink); }
+.flow .soft { fill: var(--ink-soft); font-size: 10.5px; }
+.flow .box { fill: var(--plate); stroke: var(--scribe); stroke-width: 1.2; }
+.flow .paidbox { fill: none; stroke: var(--brass); stroke-width: 1.6; }
+.flow .line { stroke: var(--scribe); stroke-width: 1.2; fill: none; }
+.flow .brassline { stroke: var(--brass); stroke-width: 1.2; fill: none; stroke-dasharray: 4 4; }
+.flow .head { fill: var(--scribe); } .flow .bhead { fill: var(--brass); }
+.points { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 22px 32px; margin-top: 30px; }
+.points h3 { font: 600 0.8rem/1.4 var(--mono); color: var(--brass); margin: 0 0 6px; }
+.points p { margin: 0; color: var(--ink-soft); font-size: 0.97rem; }
+
+/* Receipts */
+.table { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.95rem; }
+th { text-align: left; font: 400 0.7rem/1.4 var(--mono); color: var(--ink-soft); padding: 0 14px 10px 0; border-bottom: 1px solid var(--scribe); }
+td { padding: 14px 14px 14px 0; border-bottom: 1px solid var(--scribe-faint); vertical-align: top; }
+td.n { font: 600 0.82rem/1.5 var(--mono); color: var(--brass); white-space: nowrap; font-variant-numeric: tabular-nums; }
+td .mini { display: flex; height: 8px; margin-top: 8px; border: 1px solid var(--scribe-faint); min-width: 120px; }
+td .mini i { display: block; background: var(--scribe); } td .mini b { display: block; background: var(--brass); }
+.fine { font: 400 0.74rem/1.7 var(--mono); color: var(--ink-soft); margin-top: 18px; max-width: 62em; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px 48px; }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.list li { padding-left: 22px; position: relative; color: var(--ink-soft); }
+.list li::before { content: ""; position: absolute; left: 0; top: 0.72em; width: 12px; height: 1px; background: var(--brass); }
+.list li strong { color: var(--ink); }
+.list.no li::before { background: var(--stop); }
+
+.cmd { background: var(--term-ground); border: 1px solid var(--scribe); color: #d5e2ee; padding: 14px; font: 400 0.74rem/1.7 var(--mono); overflow-x: auto; white-space: pre; margin: 0 0 8px; }
+.cmd .p { color: #d9b45a; }
+.steps { display: grid; gap: 26px; }
+.steps h3 { font: 600 0.8rem/1.4 var(--mono); color: var(--brass); margin: 0 0 8px; }
+.steps p { margin: 0 0 10px; color: var(--ink-soft); max-width: 46em; }
+
+.beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0; border: 1px solid var(--scribe-faint); }
+.beats blockquote { margin: 0; padding: 22px; border: 1px solid var(--scribe-faint); font: 800 1.45rem/1.12 var(--display); letter-spacing: 0.01em; text-transform: uppercase; }
+.beats cite { display: block; margin-top: 12px; font: 400 0.7rem/1.5 var(--mono); color: var(--ink-soft); font-style: normal; text-transform: none; letter-spacing: 0; }
+
+footer { border-top: 1px solid var(--scribe); padding-block: 28px 48px; font: 400 0.74rem/1.8 var(--mono); color: var(--ink-soft); }
+footer p { margin: 0 0 8px; max-width: 70em; }
+
+@media (max-width: 860px) {
+  .hero, .check { grid-template-columns: minmax(0, 1fr); }
+  .term pre { height: 22em; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<div class="rule" aria-hidden="true"></div>
+<div class="wrap">
+  <header class="top">
+    <div class="mark">Offload<small>by Boxwright</small></div>
+    <nav aria-label="Sections">
+      <a href="#check">Will it run on my box?</a>
+      <a href="#how">How it works</a>
+      <a href="#receipts">Receipts</a>
+      <a href="#safety">Safety</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/boxwright/offload">Source</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>Use less credits with your <em>home box</em> AI.</h1>
+      <p class="lede">Offload is a small daemon for people who own a GPU box and pay for Claude. You give it one line about a change you want. <strong>The model on your own GPU does the typing.</strong> Claude only plans, reviews, and steps in when the local model stalls. You get a pushed branch, a report, and a message when it needs a decision.</p>
+      <div class="cta">
+        <a class="btn primary" href="#check">Check your box first</a>
+        <a class="btn" href="https://github.com/boxwright/offload">Read the code</a>
+      </div>
+    </div>
+    <div class="term" aria-label="A recorded terminal session">
+      <div class="term-bar"><span id="term-note">real session, recorded</span><button id="replay" type="button">Replay</button></div>
+      <pre id="term" tabindex="0"></pre>
+    </div>
+  </div>
+
+  <div class="split">
+    <div class="split-head"><span>One real job: write a 33-test suite for Offload itself, 446 lines, 5 files</span><span>drawn to scale</span></div>
+    <div class="bar" role="img" aria-label="Local model 740 seconds, Claude 36 seconds">
+      <span class="local">your GPU · 740 s · 7 sessions</span><span class="paid" title="Claude: 36 s, 2 calls">36 s</span>
+    </div>
+    <p class="split-foot">The brass sliver is Claude: <b>36 seconds, 2 calls</b>, one to plan and one to review. <a href="https://github.com/boxwright/offload/blob/main/evidence/m5-tests/REPORT.md">The job's report</a></p>
+  </div>
+
+  <section id="check">
+    <p class="kicker">Before you install anything</p>
+    <h2>Will it run on your box?</h2>
+    <p class="intro">Most machines cannot run this, and it is better to know now. This uses the same rules as the preflight script, which reads your actual hardware and installs nothing.</p>
+    <div class="check">
+      <div class="fields">
+        <div class="field"><label for="f-os">Operating system of the box</label>
+          <select id="f-os"><option value="linux">Linux</option><option value="mac">macOS (Apple Silicon)</option><option value="win">Windows</option></select></div>
+        <div class="field"><label for="f-gpu">GPU memory (NVIDIA VRAM, or unified memory on a Mac)</label>
+          <select id="f-gpu"><option value="0">no dedicated GPU</option><option value="8">8 GB</option><option value="12">12 GB</option><option value="16">16 GB</option><option value="24" selected>24 GB (RTX 3090, 4090)</option><option value="32">32 GB (RTX 5090)</option><option value="48">48 GB or more</option><option value="64">Mac with 64 GB or more</option></select></div>
+        <div class="field"><label for="f-ram">System RAM</label>
+          <select id="f-ram"><option value="16">16 GB</option><option value="32" selected>32 GB</option><option value="64">64 GB or more</option></select></div>
+        <div class="field"><label for="f-plan">Claude plan</label>
+          <select id="f-plan"><option value="max">Pro or Max</option><option value="free">Free, or none</option></select></div>
+      </div>
+      <div class="verdict" aria-live="polite">
+        <h3 id="v-title"></h3>
+        <ul id="v-list"></ul>
+        <p class="note" id="v-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <p class="kicker">One harness, two brains</p>
+    <h2>How it works</h2>
+    <p class="intro">Both workers are Claude Code in print mode, inside the same locked-down container. The local one talks to a small proxy in front of your model server, so there is no second agent to install. Brass marks the only places the paid model is used.</p>
+    <div class="flow">
+      <svg viewBox="0 0 980 300" role="img" aria-label="One line goes to intake and a plan made by Claude, then steps are executed by the local model with tests after each step, a stalled step gets one Claude rescue, then Claude reviews, and the engine commits, pushes, reports and notifies.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="head" d="M0 0 L10 5 L0 10 z"></path></marker>
+          <marker id="bh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="bhead" d="M0 0 L10 5 L0 10 z"></path></marker>
+        </defs>
+        <rect class="box" x="10" y="96" width="120" height="60"></rect>
+        <text x="70" y="122" text-anchor="middle">one line</text><text class="soft" x="70" y="140" text-anchor="middle">offload add "…"</text>
+        <path class="line" d="M130 126 H176" marker-end="url(#ah)"></path>
+        <rect class="paidbox" x="178" y="96" width="140" height="60"></rect>
+        <text x="248" y="122" text-anchor="middle">intake + plan</text><text class="soft" x="248" y="140" text-anchor="middle">Claude · once each</text>
+        <path class="line" d="M318 126 H364" marker-end="url(#ah)"></path>
+        <rect class="box" x="366" y="70" width="260" height="112"></rect>
+        <text x="496" y="98" text-anchor="middle">steps: your GPU, in the sandbox</text>
+        <text class="soft" x="496" y="120" text-anchor="middle">a fresh session for every step</text>
+        <text class="soft" x="496" y="138" text-anchor="middle">tests after each step, in a container</text>
+        <text class="soft" x="496" y="156" text-anchor="middle">with no network; failures are fed back</text>
+        <path class="line" d="M590 70 C590 30, 402 30, 402 68" marker-end="url(#ah)"></path>
+        <text class="soft" x="496" y="28" text-anchor="middle">red tests → try again</text>
+        <path class="brassline" d="M496 182 V226" marker-end="url(#bh)"></path>
+        <rect class="paidbox" x="396" y="228" width="200" height="50"></rect>
+        <text x="496" y="250" text-anchor="middle">one rescue</text><text class="soft" x="496" y="267" text-anchor="middle">Claude · only when it stalls</text>
+        <path class="line" d="M626 126 H672" marker-end="url(#ah)"></path>
+        <rect class="paidbox" x="674" y="96" width="120" height="60"></rect>
+        <text x="734" y="122" text-anchor="middle">review</text><text class="soft" x="734" y="140" text-anchor="middle">Claude · once</text>
+        <path class="line" d="M794 126 H840" marker-end="url(#ah)"></path>
+        <rect class="box" x="842" y="80" width="128" height="92"></rect>
+        <text x="906" y="106" text-anchor="middle">one commit</text><text x="906" y="124" text-anchor="middle">push a branch</text>
+        <text class="soft" x="906" y="144" text-anchor="middle">report · message</text><text class="soft" x="906" y="160" text-anchor="middle">by the engine</text>
+      </svg>
+    </div>
+    <div class="points">
+      <div><h3>Rate limits are its problem</h3><p>On a limit it reads the reset time, waits, and resumes the same session. In our test the resumed review cost a tenth of a fresh one.</p></div>
+      <div><h3>A budget you set</h3><p>It paces Claude use evenly across your week and keeps a share for your own sessions. Ahead of pace, the paid steps wait and the local ones continue.</p></div>
+      <div><h3>Three questions, ever</h3><p>It asks before spending money, publishing, or deleting. Everything else it decides, and writes down in the job's report.</p></div>
+      <div><h3>Reports, not vibes</h3><p>Every job leaves a page: what changed, what it cost, who decided what, and whether the paid model had to rescue a step.</p></div>
+    </div>
+  </section>
+
+  <section id="receipts">
+    <p class="kicker">Measured on real jobs, evidence in the repository</p>
+    <h2>Receipts</h2>
+    <div class="table">
+      <table>
+        <thead><tr><th>Job</th><th>Your GPU</th><th>Claude</th><th>Claude's share of the time</th></tr></thead>
+        <tbody>
+          <tr><td>Fix a bug in a small repo, the built-in <code>offload demo</code></td><td class="n">58 s · 3 sessions</td><td class="n">20 s · 2 calls</td><td><div class="mini"><i style="flex:58"></i><b style="flex:20"></b></div></td></tr>
+          <tr><td>Write a 33-test suite, 446 lines, 5 files</td><td class="n">740 s · 7 sessions</td><td class="n">36 s · 2 calls</td><td><div class="mini"><i style="flex:740"></i><b style="flex:36"></b></div></td></tr>
+          <tr><td>Move 13 hardcoded settings into a config layer, with tests</td><td class="n">868 s · 5 sessions</td><td class="n">68 s · 2 calls</td><td><div class="mini"><i style="flex:868"></i><b style="flex:68"></b></div></td></tr>
+          <tr><td>Turn a 600-line script into a package with a CLI</td><td class="n">4,294 s · 6 sessions</td><td class="n">104 s · 2 calls</td><td><div class="mini"><i style="flex:4294"></i><b style="flex:104"></b></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine">The last three jobs were Offload working on its own source code. On a five-task calibration set the local model and Claude Sonnet both scored 5 of 5; the same small tasks done entirely by Claude re-read 130,000 to 190,000 cached tokens each. Hardware: one RTX 5090, Qwen3.8-27B. Your numbers will differ; the runners are in the repo so you can measure your own. <a href="https://github.com/boxwright/offload/blob/main/calibration/RESULTS.md">Calibration results</a> · <a href="https://github.com/boxwright/offload/blob/main/docs/hardware.md">Hardware page</a></p>
+  </section>
+
+  <section>
+    <div class="two">
+      <div>
+        <p class="kicker">Who should not install this</p>
+        <h2>What it cannot do</h2>
+        <ul class="list no">
+          <li><strong>Make a small GPU run a big model.</strong> Under 22 GB of VRAM there is nothing to install yet.</li>
+          <li><strong>Use a 32 GB laptop as the host.</strong> We measured one: fine at writing, a tenth of the speed at reading, so every session would wait about a minute before its first word.</li>
+          <li><strong>Get vague or sprawling tasks right on its own.</strong> It escalates when the local model stalls, and the report says when it did.</li>
+          <li><strong>Run on Windows, or with a Mac as the host.</strong> A laptop can drive a Linux box over SSH.</li>
+        </ul>
+      </div>
+      <div id="safety">
+        <p class="kicker">Models editing code while you sleep</p>
+        <h2>Safety, in short</h2>
+        <ul class="list">
+          <li><strong>Every model runs in a container</strong>, unprivileged, behind an outbound firewall it cannot change. If the firewall does not start, the worker does not run.</li>
+          <li><strong>The local model's container never holds your Claude login</strong>, and cannot reach the internet at all. The paid one can reach Anthropic and nothing else.</li>
+          <li><strong>Your project's tests run with no network at all</strong>, because tests are code the model just wrote.</li>
+          <li><strong>An allowlist of tools, not a blocklist.</strong> No push, sudo, ssh, docker, curl or pip.</li>
+          <li><strong>The engine makes the one commit and the one push</strong>, to a branch, never to your default branch by itself.</li>
+        </ul>
+        <p class="fine"><a href="https://github.com/boxwright/offload/blob/main/docs/safety.md">The full safety model</a>, including what it does not protect against.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <p class="kicker">Two commands, and the first installs nothing</p>
+    <h2>Install</h2>
+    <div class="steps">
+      <div>
+        <h3>1 · Ask your machine</h3>
+        <p>Read-only. It reports your GPU and memory, Docker, the NVIDIA container runtime, disk space, and the Claude CLI, and says plainly what is missing.</p>
+        <pre class="cmd"><span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/boxwright/offload/main/install/preflight.sh | bash</pre>
+      </div>
+      <div>
+        <h3>2 · Install</h3>
+        <p>It tells you the size before every download (the model is 17 to 20 GB), offers speculative decoding with a recommendation based on your GPU memory, and never sees your Claude login: you create your own token with <code>claude setup-token</code>.</p>
+        <pre class="cmd"><span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/boxwright/offload/main/install/install.sh | bash
+<span class="p">$</span> offload doctor     <span style="color:#7f97ad"># checks Docker, the sandbox, the model, the token</span>
+<span class="p">$</span> offload demo       <span style="color:#7f97ad"># a two-minute job on a sample repo, so you can watch it work</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="kicker">Built in the open, mistakes included</p>
+    <h2>The story so far</h2>
+    <p class="intro">Four things that went wrong while building it, each with a number behind it.</p>
+    <div class="beats">
+      <blockquote>One word in my prompt cost me 415,000 tokens.<cite>The daemon looked for the word STUCK. The local agent echoes its instructions, which said "say STUCK".</cite></blockquote>
+      <blockquote>My laptop fell asleep. The job didn't.<cite>A 73-minute refactor finished, was reviewed and pushed. I found out two days later.</cite></blockquote>
+      <blockquote>My AI sandbox had a door I forgot to lock.<cite>Every model was sandboxed. The tests, which are code the model wrote, ran on the host.</cite></blockquote>
+      <blockquote>It kept calling for backup. I had told it to stare at the code first.<cite>One sentence to the planner: 38 cents and a rescue became 13 cents and none.</cite></blockquote>
+    </div>
+      </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Offload is open source under Apache-2.0. The model it downloads, Qwen3.8-27B (Unsloth GGUF build), is also Apache-2.0.</p>
+    <p>Offload is an independent tool that works with Claude Code. It is not affiliated with or endorsed by Anthropic. "Claude" and "Claude Code" are Anthropic's. You bring your own subscription, and it is never shared. Dollar figures in reports are API list prices used as a yardstick for pacing, not a bill.</p>
+    <p>Made by Boxwright.</p>
+  </div>
+</footer>
+
+<script>
+/* ---- The recorded session. The build step injects the real transcript here. ---- */
+const TRANSCRIPT = {"job": "demo-004", "captured": "2026-09-20 08:10", "frames": [{"at": 0.0, "cmd": "offload demo", "out": "queued demo-004. Watch it with:  offload status     then:  offload report demo-004"}, {"at": 9.3, "cmd": "offload status", "out": "demo-004           running        $  0.00  08:09:52 worktree      Fix the failing statistics tests in the demo repos"}, {"at": 18.7, "cmd": "offload status", "out": "demo-004           running        $  0.09  08:10:02 plan          Fix the failing statistics tests in the demo repos"}, {"at": 28.0, "cmd": "offload status", "out": "demo-004           running        $  0.09  08:10:02 plan          Fix the failing statistics tests in the demo repos"}, {"at": 37.4, "cmd": "offload status", "out": "demo-004           running        $  0.09  08:10:20 tests         Fix the failing statistics tests in the demo repos"}, {"at": 46.7, "cmd": "offload status", "out": "demo-004           running        $  0.09  08:10:20 tests         Fix the failing statistics tests in the demo repos"}, {"at": 56.0, "cmd": "offload status", "out": "demo-004           running        $  0.09  08:10:20 tests         Fix the failing statistics tests in the demo repos"}, {"at": 65.4, "cmd": "offload status", "out": "demo-004           running        $  0.09  08:10:43 tests         Fix the failing statistics tests in the demo repos"}, {"at": 74.7, "cmd": "offload status", "out": "demo-004           done           $  0.13  08:10:51 notify        Fix the failing statistics tests in the demo repos"}, {"at": 75.1, "cmd": "offload report demo-004", "out": "# Report \u2014 demo-004: Fix the failing statistics tests in the demo repository\n\n**Outcome:** done  \n**Branch:** `offload/demo-004` on `~/.local/share/offload/demo-calc.git`  \n**Change:**  1 file changed, 2 insertions(+), 1 deletion(-)  \n**Cost (list-equivalent):** $0.13 opus $0.09, sonnet $0.04  \n**Time:** local worker 40 s over 2 sessions; Claude 19 s over 2 calls  \n\n## Decisions the engine made\n- plan: 2 steps (planner claude/opus)\n- review: APPROVE \u2014 APPROVE Tests pass (6/6), diff touches only `calc/__init__.py`, `mean` fix matches the plan, `median` was already correct so a docstring was added instead of an unneeded code change.\n\n## Decisions the owner made\n- none needed\n\n## Steps\n- plan: claude/opus 10.3 s, 5 turns\n- step 1: local/harness 18.0 s, 4 turns\n- step 2: local/harness 22.1 s, 6 turns\n- review: claude/sonnet 8.4 s, 3 turns\n\nPlan: `plan.md` \u00b7 Events: `events.jsonl` \u00b7 Generated 2026-09-20 08:10:51"}, {"at": 75.4, "cmd": "offload cost | head -1", "out": "week: $3.71 of $90 allowance (even pace $56.88) \u2192 on pace | last 24 h: $0.80"}]};
+
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function paint(out) {
+  return esc(out)
+    .replace(/\$\s?\d+\.\d\d/g, m => `<span class="num">${m}</span>`)
+    .replace(/\b(done|APPROVE|on pace)\b/g, '<span class="ok">$1</span>')
+    .replace(/^(\*\*[^*]+\*\*)/gm, '<span class="c">$1</span>');
+}
+function frameHtml(f) {
+  const out = f.cmd.startsWith("offload report") ? f.out.split("\n").slice(0, 13).join("\n") : f.out;
+  return `<span class="p">$</span> <span class="c">${esc(f.cmd)}</span>\n${paint(out)}\n\n`;
+}
+const term = document.getElementById("term");
+const frames = (TRANSCRIPT && TRANSCRIPT.frames) || [];
+// Status was polled every nine seconds; keep only the polls where something changed.
+const shown = frames.filter((f, i) => !f.cmd.startsWith("offload status") || i === 0 || f.out.replace(/\$\s*[\d.]+/, "") !== frames[i - 1].out.replace(/\$\s*[\d.]+/, ""));
+function showAll() { term.innerHTML = shown.map(frameHtml).join(""); }
+let timer = null;
+function replay() {
+  clearTimeout(timer); term.innerHTML = ""; let i = 0;
+  const step = () => {
+    if (i >= shown.length) return;
+    term.innerHTML += frameHtml(shown[i]); term.scrollTop = term.scrollHeight; i += 1;
+    const gap = i < shown.length ? Math.min(1600, Math.max(450, (shown[i].at - shown[i - 1].at) * 110)) : 0;
+    timer = setTimeout(step, gap);
+  };
+  step();
+}
+if (TRANSCRIPT) {
+  const total = Math.round(frames[frames.length - 1].at);
+  document.getElementById("term-note").textContent = `real session · ${TRANSCRIPT.captured} · ${total} s end to end`;
+}
+showAll();
+document.getElementById("replay").addEventListener("click", () => {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { showAll(); return; }
+  replay();
+});
+
+/* ---- The checker: the same rules as install/preflight.sh and the installer's headroom estimate. ---- */
+const $ = id => document.getElementById(id);
+function headroom(vram, fileGb, ctxK) { return (vram - 1) - (fileGb + ctxK * 0.035 + 1 + 1.5); }
+function check() {
+  const os = $("f-os").value, gpu = +$("f-gpu").value, ram = +$("f-ram").value, plan = $("f-plan").value;
+  const rows = []; let level = "yes";
+  const add = (tag, text) => { rows.push([tag, text]); if (tag === "missing") level = "no"; else if (tag === "warn" && level === "yes") level = "maybe"; };
+  if (os === "linux") add("ok", "Linux is the tested host.");
+  else if (os === "mac") add("missing", "A Mac is not a supported host today. It can drive a Linux box over SSH.");
+  else add("missing", "Windows is not supported.");
+  if (os === "mac") {
+    if (gpu >= 64) add("warn", "64 GB or more of unified memory can serve the model, but this is unmeasured. Prefill speed is the number that decides it.");
+    else add("missing", "We measured a 32 GB M5: prefill at a tenth of a desktop GPU. Not a practical host.");
+  } else if (gpu >= 30) add("ok", "Tested class. Qwen3.8-27B at 5-bit (20 GB) with a long context.");
+  else if (gpu >= 22) add("warn", "Should run the 4-bit build (17 GB) with a 32k context. Untested by us: tell us how it goes.");
+  else if (gpu > 0) add("missing", `${gpu} GB is too small for the 27B model. A smaller-model option is planned, not shipped.`);
+  else add("missing", "The point of this tool is a local model on your own GPU.");
+  if (ram >= 32) add("ok", `${ram} GB of system RAM.`); else add("warn", "32 GB of RAM is the tested floor. The model server alone is capped at 40 GB on our box.");
+  if (plan === "max") add("ok", "Your own Pro or Max plan. It is never shared."); else add("missing", "Planning, review and rescue still use Claude, so a Pro or Max plan is required.");
+  if (os === "linux" && gpu >= 22) {
+    const q5 = gpu >= 30, room = headroom(gpu >= 48 ? 48 : gpu === 32 ? 31.8 : gpu, q5 ? 20.2 : 17.0, q5 ? 128 : 32);
+    add(room >= 1 ? "ok" : "warn", `Speculative decoding (1.6 to 2.5 times faster, measured) would be ${room >= 1 ? "recommended" : "not recommended"}: about ${room.toFixed(1)} GB of GPU memory left over. An estimate from one machine.`);
+  }
+  const title = $("v-title"); title.className = level;
+  title.textContent = level === "yes" ? "Yes, this should run" : level === "maybe" ? "Probably, with caveats" : "Not yet";
+  const tag = { ok: ["t-ok", "[ ok ]"], warn: ["t-warn", "[warn]"], missing: ["t-miss", "[MISSING]"] };
+  $("v-list").innerHTML = rows.map(([t, text]) => `<li><span class="${tag[t][0]}">${tag[t][1]}</span><span>${text}</span></li>`).join("");
+  $("v-note").textContent = level === "no" ? "Nothing to install yet. The preflight script will tell you the same thing about your real hardware."
+    : "This is a guess from four dropdowns. The preflight script reads your actual machine and installs nothing.";
+}
+["f-os", "f-gpu", "f-ram", "f-plan"].forEach(id => $(id).addEventListener("change", check));
+check();
+</script>
+</body>
+</html>

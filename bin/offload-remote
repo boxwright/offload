@@ -1,0 +1,6 @@
+#!/bin/bash
+# offload-remote — run the offload command on the box that hosts the daemon, over SSH.
+# Set OFFLOAD_HOST to the SSH name of that box. Symlink this as `offload` on a laptop that does not host the daemon.
+HOST="${OFFLOAD_HOST:?set OFFLOAD_HOST to the SSH name of the box that runs offload}"
+if [ "$1" = "log" ]; then exec ssh -t "$HOST" 'journalctl --user -u offload.service -n 40 --no-pager -o cat'; fi
+exec ssh "$HOST" "PATH=\$HOME/.local/bin:\$PATH offload $(printf '%q ' "$@")"
