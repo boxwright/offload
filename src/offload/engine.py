@@ -2,14 +2,19 @@
 
     clone -> plan (Claude) -> steps (local model; tests after each; Claude rescues a stalled step)
           -> review (Claude) -> one commit -> gate if public -> push -> report
+
+Each finished phase is written to the job's checkpoint (`progress`). A job that was parked at a wait, or
+interrupted by a restart, runs again through `run` and skips what the checkpoint says is finished.
 """
 import hashlib
 import os
 import re
+import shutil
 
+from offload import progress
 from offload.budget import job_cost, load_budget
 from offload.config import CFG
-from offload.files import write_text
+from offload.files import read_text, write_text
 from offload.jobs import Job
 from offload.notify import ask_owner, notify
 from offload.prompts import plan_prompt, rescue_prompt, review_fix_prompt, review_prompt, step_brief
@@ -27,15 +32,23 @@ EXIT_GATE = 6           # the owner declined, or did not answer
 EXIT_PUSH = 7
 EXIT_NO_CHANGE = 8      # the steps left nothing to commit
 EXIT_EXCEPTION = 9
+EXIT_PARKED = 10        # `offload run` only: the job waits; run it again when the wait is over
 
 _STEP_LINE_RE = re.compile(r"\s*\d+[.)]")
 _NOT_COMMITTED = [":(exclude)**/__pycache__/**", ":(exclude)*.pyc", ":(exclude).pytest_cache/**"]
 
 
 def run(job_dir):
-    """Run one job end to end. Returns an exit code; every failure is also a `fail` event with a reason."""
+    """Run one job to its end, or to its next wait (`status.Parked` passes through to the caller).
+
+    Returns an exit code; every failure is also a `fail` event with a reason.
+    """
     job = Job(job_dir)
-    job.event("start", repo=job.repo, branch=job.branch)
+    checkpoint = progress.load(job)
+    if checkpoint.get("phase") == progress.PLAN:
+        job.event("start", repo=job.repo, branch=job.branch)
+    else:
+        job.event("continue", phase=checkpoint.get("phase"), step=checkpoint.get("step"))
     base = _prepare_worktree(job)
     if base is None:
         return EXIT_SETUP
@@ -45,39 +58,60 @@ def run(job_dir):
         return EXIT_SETUP
     if not _execute_steps(job, steps, plan_text):
         return EXIT_STEP
-    review_code = _review(job, plan_text)
-    if review_code != EXIT_OK:
-        return review_code
+    if progress.still_to_run(progress.load(job), progress.REVIEW):
+        review_code = _review(job, plan_text)
+        if review_code != EXIT_OK:
+            return review_code
+        progress.save(job, phase=progress.COMMIT)
     return _commit_and_push(job, base)
 
 
 def _prepare_worktree(job):
-    """Clone the repository onto the job's branch. Returns the base commit, or None after a `fail` event."""
-    if not os.path.isdir(job.work):
-        code, _, err, _ = sh(["git", "clone", "-q", job.repo, job.work])
-        if code != 0:
-            job.event("fail", reason=f"git clone failed: {err.strip()[-200:]}")
-            return None
-        sh(["git", "checkout", "-q", "-b", job.branch], cwd=job.work)
-        sh(["git", "config", "user.email", CFG.git_user_email], cwd=job.work)
-        sh(["git", "config", "user.name", CFG.git_user_name], cwd=job.work)
+    """Clone the repository onto the job's branch. Returns the base commit, or None after a `fail` event.
+
+    A clone with a recorded base is kept: it holds the work so far. A clone without one was cut short,
+    and is made again.
+    """
+    base_file = job.path("base.txt")
+    if os.path.isdir(job.work) and os.path.exists(base_file):
+        return read_text(base_file).strip()
+    shutil.rmtree(job.work, ignore_errors=True)
+    code, _, err, _ = sh(["git", "clone", "-q", job.repo, job.work])
+    if code != 0:
+        job.event("fail", reason=f"git clone failed: {err.strip()[-200:]}")
+        return None
+    sh(["git", "checkout", "-q", "-b", job.branch], cwd=job.work)
+    sh(["git", "config", "user.email", CFG.git_user_email], cwd=job.work)
+    sh(["git", "config", "user.name", CFG.git_user_name], cwd=job.work)
     code, out, _, _ = sh(["git", "rev-parse", "--verify", "HEAD"], cwd=job.work)
     base = out.strip()
     if code != 0 or not base:
         job.event("fail", reason="the clone is empty (no commits on the default branch); check the repo's HEAD")
         return None
-    write_text(job.path("base.txt"), base)
+    write_text(base_file, base)
     job.event("worktree", path=job.work, base=base[:10])
     return base
 
 
 def _plan(job):
+    """The plan text and its steps. The planner runs once per job; a job that continues reads `plan.txt`."""
+    plan_file = job.path("plan.txt")
+    if os.path.exists(plan_file):
+        plan_text = read_text(plan_file)
+        return plan_text, _steps_of(plan_text)
     plan_text, _ = claude(job, plan_prompt(job), model="auto", max_turns=8, purpose="plan")
-    steps = [line.strip() for line in plan_text.splitlines() if _STEP_LINE_RE.match(line)]
+    steps = _steps_of(plan_text)
     if steps:
+        write_text(plan_file, plan_text)
         write_text(job.plan, f"# Plan — {job.id}\n\n{plan_text}\n\n## Log\n")
         job.event("plan", steps=len(steps))
+        rescues = int(load_budget().get("claude", {}).get("per_job", {}).get("max_rescues", 2))
+        progress.save(job, phase=progress.STEPS, step=1, rescues_left=rescues)
     return plan_text, steps
+
+
+def _steps_of(plan_text):
+    return [line.strip() for line in plan_text.splitlines() if _STEP_LINE_RE.match(line)]
 
 
 def _execute_steps(job, steps, plan_text):
@@ -85,13 +119,20 @@ def _execute_steps(job, steps, plan_text):
     escalate_when = budget.get("escalate_when", {})
     max_fails = int(escalate_when.get("failed_test_iterations", CFG.max_test_fails))
     max_no_progress = int(escalate_when.get("no_progress_turns", 2))
-    rescues_left = int(budget.get("claude", {}).get("per_job", {}).get("max_rescues", 2))
+    checkpoint = progress.load(job)
+    if not progress.still_to_run(checkpoint, progress.STEPS):
+        return True
+    rescues_left = int(checkpoint.get("rescues_left", 2))
     for index, step in enumerate(steps, 1):
+        if index < int(checkpoint.get("step", 1)):
+            continue
         ok, rescues_left, meta = _execute_step(job, index, step, plan_text, max_fails, max_no_progress, rescues_left)
         if not ok:
             return False
         with open(job.plan, "a") as plan_log:
             plan_log.write(f"- step {index} done by {meta['worker']} in {meta['wall_s']} s\n")
+        progress.save(job, step=index + 1, rescues_left=rescues_left)
+    progress.save(job, phase=progress.REVIEW)
     return True
 
 
@@ -156,15 +197,17 @@ def _review(job, plan_text):
 
 
 def _commit_and_push(job, base):
-    # Anything a worker committed is folded into the one commit the engine makes.
-    sh(["git", "reset", "-q", "--soft", base], cwd=job.work)
-    sh(["git", "add", "-A", "--", ".", *_NOT_COMMITTED], cwd=job.work)
-    code, out, err, _ = sh(["git", "commit", "-q", "-m", f"offload: {job.title or job.id}"], cwd=job.work)
-    if code != 0:
-        job.event("fail", reason=f"nothing was committed: {(out + err).strip()[-160:] or 'no changes'}")
-        return EXIT_NO_CHANGE
+    if progress.still_to_run(progress.load(job), progress.COMMIT):
+        # Anything a worker committed is folded into the one commit the engine makes.
+        sh(["git", "reset", "-q", "--soft", base], cwd=job.work)
+        sh(["git", "add", "-A", "--", ".", *_NOT_COMMITTED], cwd=job.work)
+        code, out, err, _ = sh(["git", "commit", "-q", "-m", f"offload: {job.title or job.id}"], cwd=job.work)
+        if code != 0:
+            job.event("fail", reason=f"nothing was committed: {(out + err).strip()[-160:] or 'no changes'}")
+            return EXIT_NO_CHANGE
+        progress.save(job, phase=progress.GATE)
     change = diff_stat(job, base)
-    if job.flag("public"):
+    if job.flag("public") and progress.still_to_run(progress.load(job), progress.GATE):
         answer = ask_owner(job, "publish", f"Push branch `{job.branch}` to the PUBLIC remote `{job.repo}`? "
                                            f"Change: {change}")
         if not is_yes(answer):
@@ -173,6 +216,7 @@ def _commit_and_push(job, base):
             notify(job, f"[{job.id}] not pushed ({'no answer' if answer is None else 'declined'}). "
                         "Branch is ready in the worktree.")
             return EXIT_GATE
+    progress.save(job, phase=progress.PUSH)
     env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
     code, _, err, _ = sh(["git", "push", "-q", "-u", "origin", job.branch], cwd=job.work, timeout=300, env=env)
     job.event("push", ok=(code == 0), branch=job.branch, err=err[-200:])

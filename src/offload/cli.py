@@ -39,8 +39,15 @@ def _cmd_serve(args):
 
 
 def _cmd_run(args):
-    from offload.engine import run
-    return run(_job_dir(args.job_dir))
+    from offload.engine import EXIT_PARKED, run
+    from offload.status import Parked, set_status
+    job_dir = _job_dir(args.job_dir)
+    try:
+        return run(job_dir)
+    except Parked as parked:
+        set_status(job_dir, parked.status, **parked.wake)
+        print(f"parked: {parked.status} {parked.wake}. Run the job again when the wait is over.")
+        return EXIT_PARKED
 
 
 def _cmd_add(args):

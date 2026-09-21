@@ -15,6 +15,7 @@ import uuid
 from offload.config import CFG
 
 FIREWALL_FAILED = "FIREWALL_FAILED"
+WORKER_LABEL = "offload.role=worker"     # on every container the engine starts, so leftovers can be found
 
 class SandboxError(RuntimeError):
     """The sandbox itself failed, as opposed to the worker inside it."""
@@ -70,13 +71,24 @@ def _docker_run(args, inner, timeout, secret_env=None):
     """`docker run --rm <args> IMAGE <inner>`. The image's entry point raises the firewall, drops privileges,
     and runs `inner`. A timeout kills the container and returns exit code 124."""
     name = f"offload-{uuid.uuid4().hex[:12]}"
-    cmd = ["docker", "run", "--rm", "--name", name, *args, CFG.sandbox_image, inner]
+    cmd = ["docker", "run", "--rm", "--name", name, "--label", WORKER_LABEL, *args, CFG.sandbox_image, inner]
     process_env = {**os.environ, **(secret_env or {})}
     try:
         return sh(_with_docker_group(cmd), timeout=timeout, env=process_env)
     except subprocess.TimeoutExpired:
         sh(_with_docker_group(["docker", "kill", name]), timeout=60)
         return 124, "", f"TIMEOUT: did not finish in {timeout} s", float(timeout)
+
+
+def kill_leftover_containers():
+    """Kill worker containers that outlived a daemon: a stopped daemon takes the docker client with it, not
+    the container. One daemon runs on a host, so at its start every labelled container is a leftover.
+    Returns the number killed."""
+    code, out, _, _ = sh(_with_docker_group(["docker", "ps", "-q", "--filter", f"label={WORKER_LABEL}"]), timeout=60)
+    ids = out.split() if code == 0 else []
+    if ids:
+        sh(_with_docker_group(["docker", "kill", *ids]), timeout=60)
+    return len(ids)
 
 
 def run_sandbox(inner, env, mounts, secret_env=None, timeout=None):

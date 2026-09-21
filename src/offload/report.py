@@ -79,10 +79,15 @@ def _decision_lines(events):
         verdict = "APPROVE" if review.get("approved") else "REQUEST_CHANGES"
         notes = str(review.get("notes", ""))[:300].replace("\n", " ")
         lines.append(f"- review: {verdict} — {notes}")
-    lines += [f"- limit ({row.get('limit_kind')}): waited until {row.get('resets_at')}, resumed session"
+    lines += [f"- limit ({row.get('limit_kind')}): parked until {row.get('resets_at')}, then resumed the session"
               for row in events["limit"]]
-    lines += [f"- budget: waited {row.get('wait_s')} s (spent ${row.get('spent_usd')} vs pace ${row.get('pace_usd')})"
+    lines += [f"- budget: parked {row.get('wait_s')} s (spent ${row.get('spent_usd')} vs pace ${row.get('pace_usd')})"
               for row in events["budget_wait"]]
+    for row in events["parked"]:
+        gate = f" ({row.get('gate')})" if row.get("gate") else ""
+        lines.append(f"- parked at {row.get('t', '')[11:]}: {row.get('status')}{gate}")
+    lines += [f"- continued at {row.get('t', '')[11:]} from the checkpoint: phase {row.get('phase')}, "
+              f"step {row.get('step')}" for row in events["continue"]]
     return lines
 
 
@@ -125,8 +130,7 @@ def _recent_events(jobs_root, since):
 
 def _open_gates(jobs_root):
     return [os.path.basename(job_dir) for job_dir in job_dirs(jobs_root, include_hidden=True)
-            if os.path.exists(os.path.join(job_dir, "question.md"))
-            and not os.path.exists(os.path.join(job_dir, "answer.txt"))]
+            if status.job_status(job_dir).get("status") == status.WAITING_OWNER]
 
 
 def digest(jobs_root, hours=24, post=True):

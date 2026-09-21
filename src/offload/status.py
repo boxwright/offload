@@ -14,8 +14,20 @@ WAITING_BUDGET = "waiting_budget"
 DONE = "done"
 FAILED = "failed"
 
-# A daemon restart finds these mid-flight; the job is queued again.
-INTERRUPTED = {RUNNING, WAITING_OWNER, WAITING_LIMIT, WAITING_BUDGET}
+# A parked job holds no worker. The daemon runs other jobs and comes back when the wake condition is true.
+WAITING = {WAITING_OWNER, WAITING_LIMIT, WAITING_BUDGET}
+
+
+class Parked(Exception):
+    """Raised at a long wait. The daemon records `status` with the `wake` fields and runs the next job.
+
+    Wake fields: `deadline` (epoch seconds) and `gate` for an owner gate, `until` (ISO time) for a limit or the budget.
+    """
+
+    def __init__(self, status, **wake):
+        super().__init__(status)
+        self.status = status
+        self.wake = wake
 
 
 def job_status(job_dir):

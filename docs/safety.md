@@ -52,8 +52,8 @@ refused by the harness without a prompt. The lists are `claude_tools` and `local
 ## Gates
 
 A job marked `public: true` stops before the push and asks you. The question goes to your Discord webhook and
-to `offload status`; you answer with `offload answer <job> yes`. No answer within a day fails the job and
-pushes nothing. Money and deletion use the same mechanism. No job type spends money today; the gate exists so
+to `offload status`; you answer with `offload answer <job> yes`. While the job waits for you it is parked, and the
+daemon runs the next job. No answer within a day fails the job and pushes nothing. Money and deletion use the same mechanism. No job type spends money today; the gate exists so
 that adding one cannot skip it.
 
 ## What the engine does on your host, outside any container

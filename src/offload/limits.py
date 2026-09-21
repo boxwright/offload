@@ -6,7 +6,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 LIMIT_RE = re.compile(r"hit your (session|weekly|usage|monthly spend) limit", re.I)
 MAX_LIMIT_WAITS = 6
-WAIT_CHUNK_S = 1800
 
 _RELATIVE_RE = re.compile(r"resets? in (\d+)\s*(minute|min|hour|hr)s?", re.I)
 _CLOCK_RE = re.compile(r"resets?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)(?:\s*\(([^)]+)\))?", re.I)

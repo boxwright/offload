@@ -33,8 +33,9 @@ the diff and a few files. If a repository must never leave the machine, do not g
 cloud model.
 
 **What happens at a rate limit?**
-The daemon reads the reset time from the message, waits, and resumes the same session. You are not notified.
-Work that does not need the paid model continues.
+The daemon reads the reset time from the message and parks the job until then. After that time the job continues
+in the same Claude session. You are not notified. The limit belongs to your account, so no other job calls
+Claude before the reset time. Work that does not need the paid model continues.
 
 **Can it run on a Mac or on Windows?**
 Not as the host, today. A laptop can drive a Linux box over SSH with the `offload-remote` wrapper.

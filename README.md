@@ -58,7 +58,8 @@ offload answer <job> yes
 - **One harness, two brains.** Both workers are Claude Code in print mode. The local one talks to a small proxy in front of your model server, so there is no second agent to install.
 - **Sandboxed by default.** Every worker runs unprivileged in a container with a default-deny firewall. The local worker's container never holds your Claude token and has no internet.
 - **Three questions, ever.** It asks you before spending money, publishing, or deleting. Everything else it decides and writes down.
-- **Rate limits are its problem, not yours.** On a limit it reads the reset time, waits, and resumes the same session.
+- **Rate limits are its problem, not yours.** On a limit it reads the reset time, parks the job, and resumes the same session later.
+- **A waiting job does not block the queue.** A job that waits for you, a limit, or the budget is parked, and the next job runs. After a restart a job continues from the step it was on. It does not plan again.
 - **A budget you set.** It paces Claude use across the week and keeps a share for your own sessions.
 
 ## What it saves

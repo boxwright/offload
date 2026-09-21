@@ -12,7 +12,7 @@ from collections import defaultdict
 from typing import NamedTuple
 
 from offload import status
-from offload.clock import now
+from offload.clock import iso_after, now
 from offload.config import CFG
 from offload.files import append_jsonl, read_jsonl
 
@@ -20,7 +20,6 @@ LEDGER = CFG.ledger
 BUDGET_FILE = CFG.budget_file
 
 WEEK_S = 7 * 86400
-BUDGET_POLL_S = 600
 _WEEKDAYS = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 _budget_cache = {}
 
@@ -128,23 +127,13 @@ def pace_status(budget, now=None):
 
 
 def budget_wait(job, purpose):
-    """Block until the pacer allows a Claude call. The job shows as waiting_budget meanwhile."""
-    budget = load_budget()
-    waited = 0
-    while True:
-        pace = pace_status(budget)
-        if pace.allowed:
-            if waited:
-                job.event("budget_resume", purpose=purpose, waited_s=waited)
-                status.set_status(job.dir, status.RUNNING)
-            return
-        if not waited:
-            job.event("budget_wait", purpose=purpose, spent_usd=round(pace.spent, 3),
-                      pace_usd=round(pace.pace_now, 3), allowance_usd=pace.allowance, wait_s=pace.wait_s)
-            status.set_status(job.dir, status.WAITING_BUDGET, wait_s=pace.wait_s)
-        chunk = min(pace.wait_s, BUDGET_POLL_S)
-        time.sleep(chunk)
-        waited += chunk
+    """Return when the pacer allows a Claude call. Otherwise park the job until the pacer's next opening."""
+    pace = pace_status(load_budget())
+    if pace.allowed:
+        return
+    job.event("budget_wait", purpose=purpose, spent_usd=round(pace.spent, 3),
+              pace_usd=round(pace.pace_now, 3), allowance_usd=pace.allowance, wait_s=pace.wait_s)
+    raise status.Parked(status.WAITING_BUDGET, until=iso_after(pace.wait_s), wait_s=pace.wait_s)
 
 
 def model_for(purpose):

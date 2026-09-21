@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.1 — not released
+
+- A job that waits for the owner, a provider limit, or the budget is parked, and the daemon runs the next
+  job. Before, one open gate held the queue for up to a day.
+- A job continues from its checkpoint (`progress.json`: phase and step). A restart or a park no longer sends
+  the job back to the planner. A rate limit blocks Claude calls for every job until the reset time, and the
+  interrupted call resumes its session.
+- At start the daemon kills worker containers that a stopped daemon left running. Worker containers carry
+  the label `offload.role=worker`.
+- `offload run` exits with code 10 when the job parks.
+
 ## 0.1.0 — 2026-09-20
 
 First public release.

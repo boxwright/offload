@@ -9,11 +9,12 @@ import os
 import re
 import time
 
-from offload import results, status
+from offload import progress, results, status
 from offload.budget import budget_wait, ledger_add, model_for
+from offload.clock import is_past
 from offload.config import CFG
-from offload.files import read_text
-from offload.limits import MAX_LIMIT_WAITS, WAIT_CHUNK_S, limit_kind, parse_reset, simulated_limit_message
+from offload.files import read_text, write_text
+from offload.limits import MAX_LIMIT_WAITS, limit_kind, parse_reset, simulated_limit_message
 from offload.prompts import RESUME_PROMPT
 from offload.sandbox import claude_cmdline, run_sandbox, run_shell_in_sandbox, sh
 
@@ -65,16 +66,24 @@ def local_harness(job, brief, purpose):
 
 
 def claude(job, prompt, model, max_turns, purpose):
-    """One Claude call for a job, paced, retried when overloaded, resumed after a rate limit.
+    """One Claude call for a job: paced, retried when overloaded, parked at a rate limit.
 
+    A call that a limit cut short is recorded as pending. The same call after the wake resumes that session.
     Returns (reply text, event fields).
     """
+    _park_if_claude_is_blocked(job)
     budget_wait(job, purpose)
     if model == "auto":
         model = model_for(purpose)
-    reply, wall = _call_claude(job, prompt, model, max_turns)
-    reply = _maybe_simulate_limit(job, purpose, reply)
-    limit_waits = overloaded_tries = 0
+    session_id = progress.pending_session(job, purpose)
+    if session_id:
+        job.event("resume", session=session_id)
+        progress.save(job, pending=None)
+        reply, wall = _resume_or_rerun(job, prompt, model, max_turns, session_id)
+    else:
+        reply, wall = _call_claude(job, prompt, model, max_turns)
+        reply = _maybe_simulate_limit(job, purpose, reply)
+    overloaded_tries = 0
     while True:
         text = reply.get("result") or ""
         meta = _record_call(job, reply, wall, model, purpose)
@@ -84,10 +93,8 @@ def claude(job, prompt, model, max_turns, purpose):
             job.event("overloaded", try_=overloaded_tries)
             time.sleep(30 * overloaded_tries)
             reply, wall = _call_claude(job, prompt, model, max_turns)
-        elif kind == results.LIMIT and limit_waits < MAX_LIMIT_WAITS:
-            limit_waits += 1
-            _wait_for_limit(job, reply)
-            reply, wall = _resume_or_rerun(job, prompt, model, max_turns, reply.get("session_id"))
+        elif kind == results.LIMIT and _limit_parks(job) < MAX_LIMIT_WAITS:
+            _park_for_limit(job, reply, purpose)
         else:
             return text, meta
 
@@ -146,25 +153,38 @@ def _record_call(job, reply, wall, model, purpose):
     return meta
 
 
-def _wait_for_limit(job, reply):
-    """Sleep until the provider's window reopens, plus half a minute."""
+def _blocked_until_file():
+    """A provider limit belongs to the account, so one file beside the ledger holds it for every job."""
+    return os.path.join(os.path.dirname(CFG.ledger), "claude-blocked-until")
+
+
+def _park_if_claude_is_blocked(job):
+    """Park without a call while a limit that another call met is still in force."""
+    try:
+        until = read_text(_blocked_until_file()).strip()
+    except FileNotFoundError:
+        return
+    if not is_past(until):
+        raise status.Parked(status.WAITING_LIMIT, until=until)
+
+
+def _limit_parks(job):
+    return int(progress.load(job).get("limit_parks", 0))
+
+
+def _park_for_limit(job, reply, purpose):
+    """Park the job until the provider's window reopens, plus half a minute. Record the session to resume."""
     text = reply.get("result") or ""
     local_now = dt.datetime.now().astimezone()
     reset = parse_reset(text) or (local_now + dt.timedelta(minutes=30))
-    until = reset + dt.timedelta(seconds=30)
+    until = (reset + dt.timedelta(seconds=30)).isoformat()
     session_id = reply.get("session_id")
     job.event("limit", limit_kind=limit_kind(text), resets_at=reset.isoformat(),
-              wait_s=int((until - local_now).total_seconds()), session=session_id)
-    status.set_status(job.dir, status.WAITING_LIMIT, until=until.isoformat())
-    while True:
-        remaining = (until - dt.datetime.now().astimezone()).total_seconds()
-        if remaining <= 0:
-            break
-        time.sleep(min(remaining, WAIT_CHUNK_S))
-        if remaining > WAIT_CHUNK_S:
-            job.event("waiting", remaining_s=int(remaining - WAIT_CHUNK_S))
-    job.event("resume", session=session_id)
-    status.set_status(job.dir, status.RUNNING)
+              wait_s=int((reset - local_now).total_seconds()) + 30, session=session_id)
+    progress.save(job, pending={"purpose": purpose, "session": session_id}, limit_parks=_limit_parks(job) + 1)
+    os.makedirs(os.path.dirname(_blocked_until_file()), exist_ok=True)
+    write_text(_blocked_until_file(), until + "\n")
+    raise status.Parked(status.WAITING_LIMIT, until=until)
 
 
 def _maybe_simulate_limit(job, purpose, reply):

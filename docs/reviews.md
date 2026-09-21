@@ -17,7 +17,7 @@ Defects found by the reviewers and fixed in the same pass:
 |---|---|
 | The worker ran even when the sandbox firewall script failed (`;` joined, output discarded) | the worker starts only if the firewall came up; otherwise `SandboxError` fails the job |
 | A failed `git push` still reported "done, pushed" with exit 0 | push failure is a `fail` event and exit 7 |
-| A job waiting on a limit, the budget, or the owner at a daemon restart was stranded forever | every interrupted status is requeued at start (tested) |
+| A job waiting on a limit, the budget, or the owner at a daemon restart was stranded forever | every interrupted status is requeued at start (tested). Since 0.1.1 a waiting job is parked with its wake condition on disk, so a restart does not touch it |
 | The subscription token was on the docker command line, visible in `ps` | passed through the process environment (`-e NAME` without a value) |
 | `"529" in text` matched any text containing 529 | anchored pattern (tested) |
 | A worker timeout killed only the docker client and left the container running | containers are named and killed on timeout; a timeout is an error reply, not a crash |
@@ -41,9 +41,9 @@ serve loop (now `daemon.py`) stops re-reading finished jobs. 62 tests, ruff clea
 
 - **Lazy config.** `CFG` loads at import. A `get_config()` accessor with an injectable override would make tests simpler and move the `ENGINE_GATE_WAIT_S` env read out of a dataclass default.
 - **Paths for an installed package.** `budget_file` and `repos.yaml` default to the repo root, which does not exist after `pip install`. Move defaults to `~/.config/offload/` and `~/.local/state/offload/` (XDG), with `offload init` writing them. Also rename `ENGINE_CONFIG` → `OFFLOAD_CONFIG`, `~/.config/engine` → `~/.config/offload`, image and proxy names `engine-*` → `offload-*`, branch prefix `engine/` → `offload/`.
-- **Resumable phases.** A requeued job restarts from the plan. The worktree makes that safe but wasteful; record the phase and resume there.
+- ~~**Resumable phases.**~~ Done 2026-09-20: `progress.json` holds the phase and the step. Proof: `jobs/a2-killed/` (daemon restarted 4 s into step 2; one `plan` event; the job continued at step 2).
 - **Growth.** Worktrees, `claude-home` session folders, events and the ledger are never cleaned. Sweep finished jobs after N days; rotate the ledger monthly.
-- **Waits block the single-job loop.** A gate can hold the daemon for a day. Park a waiting job and run the next one.
+- ~~**Waits block the single-job loop.**~~ Done 2026-09-20: a wait raises `Parked`, and the loop runs the next job. Proof: `jobs/a1-gated/` and `jobs/a1-plain/`.
 - **`tier` in job.md is unused.** Either route by it or drop it.
 - **Notifier interface.** Discord is the only notifier; make it one implementation behind `notify()`.
 - **Installer:** see the section below.

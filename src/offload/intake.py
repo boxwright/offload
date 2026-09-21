@@ -1,11 +1,12 @@
 """Intake: turn a one-line idea into a full job file, asking the owner only when the repository is unclear."""
 import json
+import os
 import re
 
 import yaml
 
 from offload import status
-from offload.files import write_text
+from offload.files import read_json, write_json, write_text
 from offload.jobs import DEFAULT_TEST_CMD, Job, known_repos
 from offload.notify import ask_owner
 from offload.prompts import intake_prompt
@@ -43,10 +44,8 @@ def intake(job_dir):
         status.set_status(job_dir, status.READY)
         return True
     request = job.body.strip()
-    reply, _ = claude(job, intake_prompt(request, known_repos()), model="auto", max_turns=2, purpose="plan")
-    spec = extract_yaml(reply)
+    spec = _drafted_spec(job, request)
     if spec is None:
-        job.event("intake_failed", text=reply[:200])
         status.set_status(job_dir, status.FAILED, reason="intake parse")
         return False
     if str(spec.get("repo", "UNKNOWN")).upper() == "UNKNOWN":
@@ -60,6 +59,21 @@ def intake(job_dir):
     job.event("intake", repo=spec["repo"], title=spec.get("title"))
     status.set_status(job_dir, status.READY)
     return True
+
+
+def _drafted_spec(job, request):
+    """The job mapping Claude drafts from the request, or None. It is kept in `intake.json`, so a job that
+    parked at the repository question does not pay for a second draft."""
+    spec_file = job.path("intake.json")
+    if os.path.exists(spec_file):
+        return read_json(spec_file)
+    reply, _ = claude(job, intake_prompt(request, known_repos()), model="auto", max_turns=2, purpose="plan")
+    spec = extract_yaml(reply)
+    if spec is None:
+        job.event("intake_failed", text=reply[:200])
+        return None
+    write_json(spec_file, spec)
+    return spec
 
 
 def _write_job_file(job, spec):

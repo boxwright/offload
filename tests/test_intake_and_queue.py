@@ -43,7 +43,7 @@ def test_next_job_prefers_inbox_then_ready(tmp_path):
     assert daemon._next_job(tmp_path) is None
 
 
-def test_restart_requeues_running_and_waiting_jobs(tmp_path):
+def test_restart_requeues_a_running_job_and_leaves_parked_jobs_parked(tmp_path):
     states = {"run": status.RUNNING, "lim": status.WAITING_LIMIT, "own": status.WAITING_OWNER,
               "bud": status.WAITING_BUDGET, "fin": status.DONE, "bad": status.FAILED}
     dirs = {name: make_job_dir(tmp_path, name) for name in states}
@@ -51,7 +51,8 @@ def test_restart_requeues_running_and_waiting_jobs(tmp_path):
         status.set_status(dirs[name], state)
     daemon._requeue_interrupted(tmp_path)
     after = {name: status.job_status(job_dir)["status"] for name, job_dir in dirs.items()}
-    assert after == {"run": "ready", "lim": "ready", "own": "ready", "bud": "ready", "fin": "done", "bad": "failed"}
+    assert after == {"run": "ready", "lim": "waiting_limit", "own": "waiting_owner", "bud": "waiting_budget",
+                     "fin": "done", "bad": "failed"}
     assert status.job_status(dirs["run"])["restarted"] == 1
 
 
