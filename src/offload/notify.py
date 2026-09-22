@@ -6,14 +6,14 @@ import urllib.error
 import urllib.request
 
 from offload import status
-from offload.config import CFG
+from offload.config import get_config
 from offload.files import read_text, remove_if_exists, write_text
 
 
 def post_webhook(text):
     """Post one message. Returns (ok, detail) and never raises."""
     try:
-        url = read_text(CFG.webhook_file).strip()
+        url = read_text(get_config().webhook_file).strip()
     except FileNotFoundError:
         return False, "no webhook file"
     body = json.dumps({"content": text[:1900], "username": "offload"}).encode()
@@ -51,7 +51,7 @@ def ask_owner(job, gate, question):
     job.event("gate", gate=gate, question=question[:200])
     notify(job, f"**[{job.id}] gate: {gate}**\n{question}\n"
                 f"Reply on the engine host: `offload answer {job.dir} \"yes\"` (or no, or your own text)")
-    raise status.Parked(status.WAITING_OWNER, gate=gate, deadline=time.time() + CFG.gate_wait_s)
+    raise status.Parked(status.WAITING_OWNER, gate=gate, deadline=time.time() + get_config().gate_wait_s)
 
 
 def _collect_answer(job, gate, answer_path, deadline):

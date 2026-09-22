@@ -7,14 +7,14 @@ DESCRIPTION = "Offload: make your Claude subscription last longer by doing the t
 
 
 def _jobs_root(args):
-    from offload.config import CFG
-    return getattr(args, "jobs", None) or CFG.jobs_root
+    from offload.config import get_config
+    return getattr(args, "jobs", None) or get_config().jobs_root
 
 
 def _job_dir(name):
     """A job given by id is looked up under the jobs root; a path is used as it is."""
-    from offload.config import CFG
-    return name if os.path.isdir(name) else os.path.join(CFG.jobs_root, name)
+    from offload.config import get_config
+    return name if os.path.isdir(name) else os.path.join(get_config().jobs_root, name)
 
 
 def _cmd_init(args):
@@ -80,6 +80,12 @@ def _cmd_answer(args):
     return 0
 
 
+def _cmd_cancel(args):
+    from offload.jobs import cancel
+    cancel(_job_dir(args.job_dir))
+    return 0
+
+
 def _cmd_digest(args):
     from offload.report import digest
     digest(_jobs_root(args), post=not args.no_post)
@@ -95,18 +101,25 @@ def _cmd_budget(args):
     return 0
 
 
+def _cmd_cleanup(args):
+    from offload.cleanup import run_cleanup
+    run_cleanup(_jobs_root(args), dry_run=args.dry_run)
+    return 0
+
+
 def _cmd_pause(args):
-    from offload.config import CFG
-    os.makedirs(os.path.dirname(CFG.pause_file), exist_ok=True)
-    open(CFG.pause_file, "w").close()
+    from offload.config import get_config
+    pause_file = get_config().pause_file
+    os.makedirs(os.path.dirname(pause_file), exist_ok=True)
+    open(pause_file, "w").close()
     print("paused")
     return 0
 
 
 def _cmd_unpause(args):
-    from offload.config import CFG
+    from offload.config import get_config
     from offload.files import remove_if_exists
-    remove_if_exists(CFG.pause_file)
+    remove_if_exists(get_config().pause_file)
     print("unpaused")
     return 0
 
@@ -137,9 +150,13 @@ def build_parser():
     answer = command("answer", _cmd_answer, "record the owner's answer to an open gate")
     answer.add_argument("job_dir")
     answer.add_argument("text", nargs="+")
+    cancel = command("cancel", _cmd_cancel, "stop a job: now if it waits, before its next worker call if it runs")
+    cancel.add_argument("job_dir")
     digest = command("digest", _cmd_digest, "print (and post) the daily digest", jobs_root=True)
     digest.add_argument("--no-post", action="store_true", help="print only")
     command("budget", _cmd_budget, "print the budget pacer state as JSON")
+    cleanup = command("cleanup", _cmd_cleanup, "remove old job folders and rotate the ledger", jobs_root=True)
+    cleanup.add_argument("--dry-run", action="store_true", help="print what a cleanup would sweep, and change nothing")
     command("pause", _cmd_pause, "start no new work until unpaused")
     command("unpause", _cmd_unpause, "resume the engine")
     return parser

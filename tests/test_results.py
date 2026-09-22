@@ -37,6 +37,7 @@ def test_is_approved():
     assert results.is_approved("All tests pass, the change is minimal.\n\nAPPROVE\n- fix is correct")
     assert not results.is_approved("REQUEST_CHANGES\nAPPROVE once the test is added")
     assert not results.is_approved("I would approve this if the tests passed")
+    assert not results.is_approved("APPROVE — no.\n\nREQUEST_CHANGES\n- the sweep deletes the whole job folder")
     assert not results.is_approved("")
 
 

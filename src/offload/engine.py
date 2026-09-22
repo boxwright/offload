@@ -13,7 +13,7 @@ import shutil
 
 from offload import progress
 from offload.budget import job_cost, load_budget
-from offload.config import CFG
+from offload.config import get_config
 from offload.files import read_text, write_text
 from offload.jobs import Job
 from offload.notify import ask_owner, notify
@@ -32,13 +32,32 @@ EXIT_GATE = 6           # the owner declined, or did not answer
 EXIT_PUSH = 7
 EXIT_NO_CHANGE = 8      # the steps left nothing to commit
 EXIT_EXCEPTION = 9
+EXIT_CANCELLED = 11
 EXIT_PARKED = 10        # `offload run` only: the job waits; run it again when the wait is over
 
 _STEP_LINE_RE = re.compile(r"\s*\d+[.)]")
 _NOT_COMMITTED = [":(exclude)**/__pycache__/**", ":(exclude)*.pyc", ":(exclude).pytest_cache/**"]
 
 
+class Cancelled(Exception):
+    """The owner cancelled the job (`offload cancel`). Checked before every worker call."""
+
+
+def _stop_if_cancelled(job):
+    if os.path.exists(job.path("cancel")):
+        raise Cancelled()
+
+
 def run(job_dir):
+    """Run one job. See `_run`. A cancelled job ends with a `fail` event and EXIT_CANCELLED."""
+    try:
+        return _run(job_dir)
+    except Cancelled:
+        Job(job_dir).event("fail", reason="cancelled by the owner")
+        return EXIT_CANCELLED
+
+
+def _run(job_dir):
     """Run one job to its end, or to its next wait (`status.Parked` passes through to the caller).
 
     Returns an exit code; every failure is also a `fail` event with a reason.
@@ -52,6 +71,7 @@ def run(job_dir):
     base = _prepare_worktree(job)
     if base is None:
         return EXIT_SETUP
+    _stop_if_cancelled(job)
     plan_text, steps = _plan(job)
     if not steps:
         job.event("fail", reason="no plan steps")
@@ -81,8 +101,8 @@ def _prepare_worktree(job):
         job.event("fail", reason=f"git clone failed: {err.strip()[-200:]}")
         return None
     sh(["git", "checkout", "-q", "-b", job.branch], cwd=job.work)
-    sh(["git", "config", "user.email", CFG.git_user_email], cwd=job.work)
-    sh(["git", "config", "user.name", CFG.git_user_name], cwd=job.work)
+    sh(["git", "config", "user.email", get_config().git_user_email], cwd=job.work)
+    sh(["git", "config", "user.name", get_config().git_user_name], cwd=job.work)
     code, out, _, _ = sh(["git", "rev-parse", "--verify", "HEAD"], cwd=job.work)
     base = out.strip()
     if code != 0 or not base:
@@ -117,7 +137,7 @@ def _steps_of(plan_text):
 def _execute_steps(job, steps, plan_text):
     budget = load_budget()
     escalate_when = budget.get("escalate_when", {})
-    max_fails = int(escalate_when.get("failed_test_iterations", CFG.max_test_fails))
+    max_fails = int(escalate_when.get("failed_test_iterations", get_config().max_test_fails))
     max_no_progress = int(escalate_when.get("no_progress_turns", 2))
     checkpoint = progress.load(job)
     if not progress.still_to_run(checkpoint, progress.STEPS):
@@ -145,6 +165,7 @@ def _execute_step(job, index, step, plan_text, max_fails, max_no_progress, rescu
     fails = no_progress = 0
     last_diff = None
     while True:
+        _stop_if_cancelled(job)
         text, meta = local_harness(job, step_brief(job, step, plan_text, feedback), purpose=f"step {index}")
         passed, test_output = run_tests(job)
         stuck = is_stuck(text)
@@ -167,6 +188,7 @@ def _execute_step(job, index, step, plan_text, max_fails, max_no_progress, rescu
             return False, rescues_left, meta
         reason = "stuck" if stuck else "no progress" if stalled else f"{fails} test failures"
         job.event("escalate", step=index, reason=reason)
+        _stop_if_cancelled(job)
         claude(job, rescue_prompt(job, step, text, test_output), model="auto", max_turns=15,
                purpose=f"rescue step {index}")
         passed, _ = run_tests(job)
@@ -176,6 +198,7 @@ def _execute_step(job, index, step, plan_text, max_fails, max_no_progress, rescu
 
 
 def _review(job, plan_text):
+    _stop_if_cancelled(job)
     verdict, meta = claude(job, review_prompt(job, plan_text), model="auto", max_turns=25, purpose="review")
     if not verdict.strip() or meta.get("is_error"):
         job.event("review_inconclusive", terminal_reason=meta.get("terminal_reason"), is_error=meta.get("is_error"))

@@ -3,9 +3,11 @@
 Costs are in USD at API list prices, as Claude Code reports them per call. On a subscription that
 figure is a yardstick for pacing, not a bill.
 
-`LEDGER` and `BUDGET_FILE` are read at call time, so tests can point them at a temporary directory.
+The ledger and budget file come from the config, read at call time, so tests can point them at a temporary directory.
 """
 import datetime as dt
+import glob
+import itertools
 import os
 import time
 from collections import defaultdict
@@ -13,11 +15,8 @@ from typing import NamedTuple
 
 from offload import status
 from offload.clock import iso_after, now
-from offload.config import CFG
+from offload.config import get_config
 from offload.files import append_jsonl, read_jsonl
-
-LEDGER = CFG.ledger
-BUDGET_FILE = CFG.budget_file
 
 WEEK_S = 7 * 86400
 _WEEKDAYS = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
@@ -34,7 +33,7 @@ class Pace(NamedTuple):
 
 def load_budget():
     """The parsed budget file, cached until the file changes. A missing file means defaults."""
-    path = BUDGET_FILE
+    path = get_config().budget_file
     try:
         stat = os.stat(path)
     except OSError:
@@ -75,8 +74,9 @@ def week_start(budget, now=None):
 
 
 def ledger_add(job, model, purpose, usd, cache_read, output_tokens):
-    os.makedirs(os.path.dirname(LEDGER), exist_ok=True)
-    append_jsonl(LEDGER, {
+    path = get_config().ledger
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    append_jsonl(path, {
         "t": now(), "ts": time.time(), "job": job.id, "model": model, "purpose": purpose,
         "usd": round(usd or 0, 5), "cache_read": cache_read, "output_tokens": output_tokens,
     })
@@ -84,7 +84,14 @@ def ledger_add(job, model, purpose, usd, cache_read, output_tokens):
 
 def _ledger_rows():
     """Every ledger record. A line damaged by a crash mid-write is skipped rather than stopping the pacer."""
-    return read_jsonl(LEDGER, strict=False)
+    return read_jsonl(get_config().ledger, strict=False)
+
+
+def _archive_rows():
+    """Every record in the monthly `ledger-YYYY-MM.jsonl` archives beside the ledger. The pacer never reads these."""
+    stem, ext = os.path.splitext(get_config().ledger)
+    for path in sorted(glob.glob(f"{stem}-*{ext}")):
+        yield from read_jsonl(path, strict=False)
 
 
 def spent_since(timestamp):
@@ -92,10 +99,10 @@ def spent_since(timestamp):
 
 
 def job_costs():
-    """One pass over the ledger: {job id: (total, {model: usd})}."""
+    """One pass over the archives and the ledger: {job id: (total, {model: usd})}."""
     totals = defaultdict(float)
     per_model = defaultdict(lambda: defaultdict(float))
-    for row in _ledger_rows():
+    for row in itertools.chain(_archive_rows(), _ledger_rows()):
         usd = row.get("usd", 0)
         totals[row.get("job")] += usd
         per_model[row.get("job")][row.get("model")] += usd

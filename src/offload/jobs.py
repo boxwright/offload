@@ -5,7 +5,7 @@ import time
 
 from offload import status
 from offload.clock import now
-from offload.config import CFG
+from offload.config import get_config
 from offload.files import append_jsonl, read_text, write_text
 from offload.notify import notify
 
@@ -67,10 +67,10 @@ def job_dirs(jobs_root, include_hidden=False):
 
 def known_repos():
     """The repositories intake may choose from (`repos_file`): path or URL -> one line on what it is."""
-    if not os.path.exists(CFG.repos_file):
+    if not os.path.exists(get_config().repos_file):
         return {}
     import yaml
-    with open(CFG.repos_file) as f:
+    with open(get_config().repos_file) as f:
         return yaml.safe_load(f) or {}
 
 
@@ -88,6 +88,23 @@ def add(jobs_root, text):
     status.set_status(job_dir, status.INBOX)
     print(f"added {job_id}: {text[:80]}")
     return job_id
+
+
+def cancel(job_dir):
+    """Cancel a job. A queued or parked job fails at once. A running job stops before its next worker call,
+    and its current worker container is killed so that call ends now."""
+    from offload.sandbox import kill_leftover_containers
+    job_dir = os.path.abspath(job_dir)
+    write_text(os.path.join(job_dir, "cancel"), now() + "\n")
+    state = status.job_status(job_dir).get("status")
+    if state == status.RUNNING:
+        kill_leftover_containers()
+        print("cancel recorded: the running job stops before its next worker call")
+    elif state in (status.DONE, status.FAILED):
+        print(f"the job is already {state}")
+    else:
+        status.set_status(job_dir, status.FAILED, reason="cancelled by the owner", finished=now())
+        print("cancelled")
 
 
 def answer(job_dir, text):

@@ -35,13 +35,15 @@ def is_stuck(text):
 
 
 def is_approved(verdict):
-    """True when the first verdict word in the reply is APPROVE.
+    """True when the reply says APPROVE and nowhere says REQUEST_CHANGES.
 
-    Reviewers are told to lead with the word, but some write a sentence first. The words are matched
-    in capitals only, so "I would approve this if" does not count.
+    Reviewers are told to lead with one word, but some write a sentence first, and one wrote
+    "APPROVE — no." and then REQUEST_CHANGES. A reply with both words is not an approval: a wrong
+    "changes requested" costs one local session, and a wrong approval pushes a bad branch. The words
+    are matched in capitals only, so "I would approve this if" does not count.
     """
-    first = _VERDICT_RE.search(verdict)
-    return bool(first) and first.group(1) == "APPROVE"
+    words = set(_VERDICT_RE.findall(verdict))
+    return words == {"APPROVE"}
 
 
 def is_yes(answer):

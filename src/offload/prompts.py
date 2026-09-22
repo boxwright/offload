@@ -26,6 +26,7 @@ def plan_prompt(job):
     You are the planner. Read this repository (read-only) and write a plan for the job below.
     Output ONLY a markdown list of 2-6 numbered steps, each one line, each ending with a tag in parentheses: (local-ok) for a step a capable local model can do alone, or (hard) for a step that needs strong reasoning. Then one line `Test: <command>`.
     Do not include steps for committing, pushing, opening a PR, or reviewing: the engine does those itself after the steps.
+    Order the steps so that the tests pass after every step, because the engine runs them after each one. A step that removes or renames something must update every user of it in the same step, or an earlier step must add the new name while the old one still works.
     Every step must change files. Do not write a step that only reads, investigates, verifies or runs tests: the tests run after every step, and a step that changes nothing counts as a stall. Fold any reading into the step that makes the change.
     Job title: {job.title}
     Job goal and done-when:

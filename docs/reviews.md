@@ -39,10 +39,10 @@ serve loop (now `daemon.py`) stops re-reading finished jobs. 62 tests, ruff clea
 
 ## Deferred, written down (larger than a cleanup)
 
-- **Lazy config.** `CFG` loads at import. A `get_config()` accessor with an injectable override would make tests simpler and move the `ENGINE_GATE_WAIT_S` env read out of a dataclass default.
+- ~~**Lazy config.**~~ Done 2026-09-22 by dogfood job `a4-lazy-config-2` (first attempt `a4-lazy-config` cancelled: its plan removed `CFG` before the users were migrated). `get_config()` / `set_config()`; tests use the `settings` fixture. `CFG` loaded at import. A `get_config()` accessor with an injectable override would make tests simpler and move the `ENGINE_GATE_WAIT_S` env read out of a dataclass default.
 - **Paths for an installed package.** `budget_file` and `repos.yaml` default to the repo root, which does not exist after `pip install`. Move defaults to `~/.config/offload/` and `~/.local/state/offload/` (XDG), with `offload init` writing them. Also rename `ENGINE_CONFIG` → `OFFLOAD_CONFIG`, `~/.config/engine` → `~/.config/offload`, image and proxy names `engine-*` → `offload-*`, branch prefix `engine/` → `offload/`.
 - ~~**Resumable phases.**~~ Done 2026-09-20: `progress.json` holds the phase and the step. Proof: `jobs/a2-killed/` (daemon restarted 4 s into step 2; one `plan` event; the job continued at step 2).
-- **Growth.** Worktrees, `claude-home` session folders, events and the ledger are never cleaned. Sweep finished jobs after N days; rotate the ledger monthly.
+- ~~**Growth.**~~ Done 2026-09-21: `cleanup.py`, `keep_days`, monthly ledger archives. The dogfood branch for this item was rejected (it deleted whole job folders); see `jobs/a3-cleanup/REPORT.md`. Events are kept on purpose: they are the evidence. The month-boundary rotation has unit tests only, because every live ledger line is from the current month.
 - ~~**Waits block the single-job loop.**~~ Done 2026-09-20: a wait raises `Parked`, and the loop runs the next job. Proof: `jobs/a1-gated/` and `jobs/a1-plain/`.
 - **`tier` in job.md is unused.** Either route by it or drop it.
 - **Notifier interface.** Discord is the only notifier; make it one implementation behind `notify()`.

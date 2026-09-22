@@ -12,6 +12,10 @@ ValueError that names it. PyYAML is only imported when a file exists.
 
 Default locations follow the XDG base directories: settings and secrets under ~/.config/offload,
 the ledger and the pause file under ~/.local/state/offload, jobs under ~/.local/share/offload.
+
+`get_config()` returns the current Config, loading it on the first call.
+`set_config(config)` installs a Config, or None to load again on the next call. It is for tests, and for a
+long-running process that wants to re-read the file.
 """
 import dataclasses
 import os
@@ -79,6 +83,7 @@ class Config:
     step_timeout: int = 1200
     max_test_fails: int = 3
     gate_wait_s: int = 86400
+    keep_days: int = 14              # finished jobs older than this lose work/, claude-home/ and scratch/; 0 = off
 
 
 def _expand(value):
@@ -126,4 +131,23 @@ def load_config(path=None):
     return Config(**values)
 
 
-CFG = load_config()
+_config = None
+
+
+def get_config():
+    """Return the current Config, loading it on the first call."""
+    global _config
+    if _config is None:
+        _config = load_config()
+    return _config
+
+
+def set_config(config):
+    """Make `config` the current Config and return the previous one. None means: load again on the next call.
+
+    For tests, and for a long-running process that wants to re-read the file.
+    """
+    global _config
+    previous = _config
+    _config = config
+    return previous

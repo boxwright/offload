@@ -31,3 +31,6 @@
 # step_timeout: 1200
 # max_test_fails: 3
 # gate_wait_s: 86400
+
+# Finished jobs older than this many days lose work/, claude-home/ and scratch/. Reports and events stay. 0 = off.
+# keep_days: 14

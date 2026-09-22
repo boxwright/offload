@@ -12,7 +12,7 @@ import time
 from offload import progress, results, status
 from offload.budget import budget_wait, ledger_add, model_for
 from offload.clock import is_past
-from offload.config import CFG
+from offload.config import get_config
 from offload.files import read_text, write_text
 from offload.limits import MAX_LIMIT_WAITS, limit_kind, parse_reset, simulated_limit_message
 from offload.prompts import RESUME_PROMPT
@@ -30,8 +30,9 @@ def run_tests(job):
     The command runs in a container with no network and no secrets, because it executes code a
     worker just wrote.
     """
-    if CFG.run_tests_on_host:
-        path = f"{CFG.host_test_path}:{os.environ['PATH']}" if CFG.host_test_path else os.environ["PATH"]
+    config = get_config()
+    if config.run_tests_on_host:
+        path = f"{config.host_test_path}:{os.environ['PATH']}" if config.host_test_path else os.environ["PATH"]
         env = dict(os.environ, PATH=path)
         code, out, err, wall = sh(job.test_cmd, cwd=job.work, timeout=600, env=env)
     else:
@@ -44,15 +45,16 @@ def run_tests(job):
 
 def local_harness(job, brief, purpose):
     """One fresh session of the local model on one brief. Returns (final answer, event fields)."""
+    config = get_config()
     local_env = {
-        "ANTHROPIC_BASE_URL": CFG.proxy_url,
+        "ANTHROPIC_BASE_URL": config.proxy_url,
         "ANTHROPIC_AUTH_TOKEN": "local",
-        "ANTHROPIC_MODEL": CFG.local_model_name,
-        "ANTHROPIC_SMALL_FAST_MODEL": CFG.local_model_name,
+        "ANTHROPIC_MODEL": config.local_model_name,
+        "ANTHROPIC_SMALL_FAST_MODEL": config.local_model_name,
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         "OFFLOAD_ALLOW_HOSTS": "",                  # the local worker needs its own network only
     }
-    inner = claude_cmdline(brief, CFG.local_model_name, CFG.local_tools, CFG.local_max_turns)
+    inner = claude_cmdline(brief, config.local_model_name, config.local_tools, config.local_max_turns)
     reply, code, err, wall = run_sandbox(inner, local_env, [(job.work, "/workspace")])
     text = reply.get("result") or ""
     meta = {
@@ -107,21 +109,21 @@ def _call_claude(job, prompt, model, max_turns, resume=None):
     os.makedirs(workdir, exist_ok=True)
     env = {
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-        "OFFLOAD_ALLOW_HOSTS": CFG.claude_allow_hosts,
-        "OFFLOAD_VERIFY_HOST": CFG.claude_allow_hosts.split()[0],
+        "OFFLOAD_ALLOW_HOSTS": get_config().claude_allow_hosts,
+        "OFFLOAD_VERIFY_HOST": get_config().claude_allow_hosts.split()[0],
     }
     secret_env = {"CLAUDE_CODE_OAUTH_TOKEN": _subscription_token()}
     mounts = [(workdir, "/workspace"), (claude_home, "/home/worker/.claude")]
-    inner = claude_cmdline(prompt, model, CFG.claude_tools, max_turns, resume=resume)
+    inner = claude_cmdline(prompt, model, get_config().claude_tools, max_turns, resume=resume)
     reply, _, _, wall = run_sandbox(inner, env, mounts, secret_env=secret_env)
     return reply, wall
 
 
 def _subscription_token():
     try:
-        return read_text(CFG.token_file).strip()
+        return read_text(get_config().token_file).strip()
     except FileNotFoundError:
-        raise RuntimeError(f"no Claude token at {CFG.token_file}: run `claude setup-token` and save "
+        raise RuntimeError(f"no Claude token at {get_config().token_file}: run `claude setup-token` and save "
                            "the token it prints to that file (chmod 600)") from None
 
 
@@ -155,7 +157,7 @@ def _record_call(job, reply, wall, model, purpose):
 
 def _blocked_until_file():
     """A provider limit belongs to the account, so one file beside the ledger holds it for every job."""
-    return os.path.join(os.path.dirname(CFG.ledger), "claude-blocked-until")
+    return os.path.join(os.path.dirname(get_config().ledger), "claude-blocked-until")
 
 
 def _park_if_claude_is_blocked(job):

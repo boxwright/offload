@@ -7,7 +7,7 @@ import urllib.error
 import urllib.request
 
 from offload import config
-from offload.config import CFG
+from offload.config import get_config
 from offload.files import write_text
 from offload.sandbox import sh
 from offload.templates import (
@@ -41,12 +41,13 @@ def _write_if_missing(path, text, mode=None):
 
 def init(systemd=True):
     """Create the directories and starter files. Never overwrites a file that exists."""
-    for directory in (config.config_dir(), config.state_dir(), CFG.jobs_root):
+    settings = get_config()
+    for directory in (config.config_dir(), config.state_dir(), settings.jobs_root):
         os.makedirs(directory, exist_ok=True)
     os.chmod(config.config_dir(), 0o700)      # it will hold the token and the webhook
     _write_if_missing(config.default_config_path(), DEFAULT_CONFIG)
-    _write_if_missing(CFG.budget_file, DEFAULT_BUDGET)
-    _write_if_missing(CFG.repos_file, DEFAULT_REPOS)
+    _write_if_missing(settings.budget_file, DEFAULT_BUDGET)
+    _write_if_missing(settings.repos_file, DEFAULT_REPOS)
     if systemd:
         units = os.path.expanduser("~/.config/systemd/user")
         command = _offload_command()
@@ -54,8 +55,8 @@ def init(systemd=True):
         _write_if_missing(os.path.join(units, "offload-digest.service"), DIGEST_SERVICE_UNIT.format(offload=command))
         _write_if_missing(os.path.join(units, "offload-digest.timer"), DIGEST_TIMER_UNIT)
     print("\nNext:")
-    if not os.path.exists(CFG.token_file):
-        print(f"  1. claude setup-token        then save the token it prints to {CFG.token_file} (chmod 600)")
+    if not os.path.exists(settings.token_file):
+        print(f"  1. claude setup-token        then save the token it prints to {settings.token_file} (chmod 600)")
     print("  2. offload doctor            checks Docker, the sandbox image, the model and the token")
     print("  3. systemctl --user enable --now offload.service offload-digest.timer")
     print("  4. offload demo              a two-minute job, so you can watch it work")
@@ -81,27 +82,29 @@ def _private(path):
 
 def doctor():
     """Check every piece a job needs. Returns 0 when all required pieces are in place."""
+    settings = get_config()
     docker_ok = sh(["docker", "info"], timeout=30)[0] == 0
-    image_ok = docker_ok and sh(["docker", "image", "inspect", CFG.sandbox_image], timeout=30)[0] == 0
-    network_ok = docker_ok and sh(["docker", "network", "inspect", CFG.docker_network], timeout=30)[0] == 0
+    image_ok = docker_ok and sh(["docker", "image", "inspect", settings.sandbox_image], timeout=30)[0] == 0
+    network_ok = docker_ok and sh(["docker", "network", "inspect", settings.docker_network], timeout=30)[0] == 0
     proxy_ok = False
     if image_ok and network_ok:
-        probe = f"curl -fs -m 5 {CFG.proxy_url}/health/liveliness >/dev/null"
-        args = ["docker", "run", "--rm", "--network", CFG.docker_network, "--cap-add=NET_ADMIN", "--cap-add=NET_RAW",
-                "-e", "OFFLOAD_ALLOW_HOSTS=", CFG.sandbox_image, probe]
+        probe = f"curl -fs -m 5 {settings.proxy_url}/health/liveliness >/dev/null"
+        args = ["docker", "run", "--rm", "--network", settings.docker_network, "--cap-add=NET_ADMIN",
+                "--cap-add=NET_RAW", "-e", "OFFLOAD_ALLOW_HOSTS=", settings.sandbox_image, probe]
         proxy_ok = sh(args, timeout=60)[0] == 0
     required = [
         _check("Docker reachable", docker_ok, "" if docker_ok else "start Docker, or add yourself to the docker group"),
-        _check(f"sandbox image {CFG.sandbox_image}", image_ok, "" if image_ok else "docker build -t it from sandbox/"),
-        _check(f"Docker network {CFG.docker_network}", network_ok, "" if network_ok else "start the model stack"),
-        _check(f"local model proxy at {CFG.proxy_url}", proxy_ok, "" if proxy_ok else "is the model stack up?"),
-        _check(f"Claude token {CFG.token_file}", _private(CFG.token_file),
-               "" if _private(CFG.token_file) else "claude setup-token, save it there, chmod 600"),
-        _check(f"budget file {CFG.budget_file}", os.path.exists(CFG.budget_file),
-               "" if os.path.exists(CFG.budget_file) else "offload init writes it"),
+        _check(f"sandbox image {settings.sandbox_image}", image_ok,
+               "" if image_ok else "docker build -t it from sandbox/"),
+        _check(f"Docker network {settings.docker_network}", network_ok, "" if network_ok else "start the model stack"),
+        _check(f"local model proxy at {settings.proxy_url}", proxy_ok, "" if proxy_ok else "is the model stack up?"),
+        _check(f"Claude token {settings.token_file}", _private(settings.token_file),
+               "" if _private(settings.token_file) else "claude setup-token, save it there, chmod 600"),
+        _check(f"budget file {settings.budget_file}", os.path.exists(settings.budget_file),
+               "" if os.path.exists(settings.budget_file) else "offload init writes it"),
     ]
-    webhook = os.path.exists(CFG.webhook_file)
-    print(f"  [{'ok' if webhook else 'optional'}] Discord webhook {CFG.webhook_file}"
+    webhook = os.path.exists(settings.webhook_file)
+    print(f"  [{'ok' if webhook else 'optional'}] Discord webhook {settings.webhook_file}"
           f"{'' if webhook else ' — without it, gate questions only appear in `offload status`'}")
     print("\nready" if all(required) else "\nnot ready: fix the MISSING items")
     return 0 if all(required) else 1
@@ -130,10 +133,10 @@ def demo():
         _git(["clone", "-q", "--bare", repo, bare], None)
         shutil.rmtree(repo)
     index = 1
-    while os.path.exists(os.path.join(CFG.jobs_root, f"demo-{index:03d}")):
+    while os.path.exists(os.path.join(get_config().jobs_root, f"demo-{index:03d}")):
         index += 1
     job_id = f"demo-{index:03d}"
-    job_dir = os.path.join(CFG.jobs_root, job_id)
+    job_dir = os.path.join(get_config().jobs_root, job_id)
     os.makedirs(job_dir)
     write_text(os.path.join(job_dir, "job.md"), DEMO_JOB.format(job_id=job_id, repo=bare))
     print(f"queued {job_id}. Watch it with:  offload status     then:  offload report {job_id}")

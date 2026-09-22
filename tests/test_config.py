@@ -4,6 +4,7 @@ Every test points HOME at a fresh tmp_path and clears OFFLOAD_CONFIG, so none re
 """
 import dataclasses
 import os
+import subprocess
 import sys
 
 import pytest
@@ -161,3 +162,60 @@ def test_unknown_key_message_lists_known_keys(_isolated_config, tmp_path):
         raise AssertionError("expected ValueError")
     except ValueError as e:
         assert "step_timeout" in str(e) and "docker_network" in str(e)
+
+
+# ---------------------------------------------------------------- accessors
+def test_get_config_caches_across_calls(_isolated_config):
+    """Two get_config() calls return the same object: the first load is cached."""
+    previous = _isolated_config.set_config(None)
+    try:
+        assert _isolated_config.get_config() is _isolated_config.get_config()
+    finally:
+        _isolated_config.set_config(previous)
+
+
+def test_set_config_returns_the_previous_config(_isolated_config):
+    """set_config(x) makes x current and returns the config that was current before."""
+    previous = _isolated_config.set_config(None)
+    try:
+        current = _isolated_config.get_config()
+        other = _isolated_config.Config(step_timeout=42)
+        returned = _isolated_config.set_config(other)
+        assert returned is current
+        assert _isolated_config.get_config() is other
+    finally:
+        _isolated_config.set_config(previous)
+
+
+def test_set_config_none_reloads_on_next_call(_isolated_config, tmp_path, monkeypatch):
+    """set_config(None) drops the cache; the next get_config() re-reads the config file."""
+    f = tmp_path / "reload.yaml"
+    f.write_text("max_test_fails: 7\n")
+    monkeypatch.setenv("OFFLOAD_CONFIG", str(f))
+    previous = _isolated_config.set_config(None)
+    try:
+        first = _isolated_config.get_config()
+        assert first.max_test_fails == 7
+        _isolated_config.set_config(None)
+        second = _isolated_config.get_config()
+        assert second.max_test_fails == 7
+        assert second is not first
+    finally:
+        _isolated_config.set_config(previous)
+
+
+# ---------------------------------------------------------------- laziness
+def test_importing_engine_modules_does_not_load_config(tmp_path):
+    """The engine modules must not read the config on import: a bad key only fails on first use, not import."""
+    f = tmp_path / "nonsense.yaml"
+    f.write_text("nonsense_key: 1\n")
+    env = os.environ.copy()
+    env["OFFLOAD_CONFIG"] = str(f)
+    env["PYTHONPATH"] = os.path.join(REPO_ROOT, "src")
+    result = subprocess.run(
+        ["python3", "-c", "import offload.daemon, offload.cli, offload.engine"],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

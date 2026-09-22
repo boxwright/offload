@@ -12,7 +12,7 @@ import subprocess
 import time
 import uuid
 
-from offload.config import CFG
+from offload.config import get_config
 
 FIREWALL_FAILED = "FIREWALL_FAILED"
 WORKER_LABEL = "offload.role=worker"     # on every container the engine starts, so leftovers can be found
@@ -71,7 +71,7 @@ def _docker_run(args, inner, timeout, secret_env=None):
     """`docker run --rm <args> IMAGE <inner>`. The image's entry point raises the firewall, drops privileges,
     and runs `inner`. A timeout kills the container and returns exit code 124."""
     name = f"offload-{uuid.uuid4().hex[:12]}"
-    cmd = ["docker", "run", "--rm", "--name", name, "--label", WORKER_LABEL, *args, CFG.sandbox_image, inner]
+    cmd = ["docker", "run", "--rm", "--name", name, "--label", WORKER_LABEL, *args, get_config().sandbox_image, inner]
     process_env = {**os.environ, **(secret_env or {})}
     try:
         return sh(_with_docker_group(cmd), timeout=timeout, env=process_env)
@@ -98,14 +98,14 @@ def run_sandbox(inner, env, mounts, secret_env=None, timeout=None):
     `secret_env` is passed through this process's environment instead, so the values never appear in
     a process list.
     """
-    args = ["--network", CFG.docker_network, "--cap-add=NET_ADMIN", "--cap-add=NET_RAW"]
+    args = ["--network", get_config().docker_network, "--cap-add=NET_ADMIN", "--cap-add=NET_RAW"]
     for key, value in env.items():
         args += ["-e", f"{key}={value}"]
     for key in secret_env or {}:
         args += ["-e", key]
     for host_path, container_path in mounts:
         args += ["-v", f"{host_path}:{container_path}"]
-    code, out, err, wall = _docker_run(args, inner, timeout or CFG.step_timeout, secret_env)
+    code, out, err, wall = _docker_run(args, inner, timeout or get_config().step_timeout, secret_env)
     if code == 124 and err.startswith("TIMEOUT"):
         return {"is_error": True, "result": err}, code, "", wall
     reply = parse_cli_json(out, err)

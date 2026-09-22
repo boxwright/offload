@@ -7,8 +7,9 @@ import os
 import time
 
 from offload import status
+from offload.cleanup import run_cleanup
 from offload.clock import is_past, now
-from offload.config import CFG
+from offload.config import get_config
 from offload.engine import EXIT_EXCEPTION, EXIT_OK, run
 from offload.intake import intake
 from offload.jobs import Job, job_dirs
@@ -94,13 +95,28 @@ def _intake(job_dir):
         status.set_status(job_dir, status.FAILED, reason=f"intake exception: {str(exc)[:160]}")
 
 
+_last_cleanup = 0.0     # epoch seconds; 0.0 before the first cleanup
+
+
+def _cleanup_once_a_day(jobs_root):
+    """Housekeeping while the loop is idle, at most once in 24 hours. A failure prints and waits for the next day."""
+    global _last_cleanup
+    if time.time() - _last_cleanup < 86400:
+        return
+    _last_cleanup = time.time()
+    try:
+        run_cleanup(jobs_root)
+    except Exception as exc:     # housekeeping is never worth a crash
+        print(f"[{now()}] cleanup failed: {exc}", flush=True)
+
+
 def serve(jobs_root, interval=20):
     """Watch the jobs root and work through it, one job at a time, until stopped.
 
     A job with no repository yet goes through intake; any other job is run. While the pause file exists
     nothing new starts.
     """
-    os.makedirs(os.path.dirname(CFG.pause_file), exist_ok=True)
+    os.makedirs(os.path.dirname(get_config().pause_file), exist_ok=True)
     print(f"[{now()}] offload serve: watching {jobs_root}", flush=True)
     try:
         killed = kill_leftover_containers()
@@ -111,8 +127,9 @@ def serve(jobs_root, interval=20):
             print(f"[{now()}] killed {killed} worker container(s) left by the previous daemon", flush=True)
     _requeue_interrupted(jobs_root)
     while True:
-        picked = None if os.path.exists(CFG.pause_file) else _next_job(jobs_root)
+        picked = None if os.path.exists(get_config().pause_file) else _next_job(jobs_root)
         if picked is None:
+            _cleanup_once_a_day(jobs_root)
             time.sleep(interval)
             continue
         state, job_dir = picked

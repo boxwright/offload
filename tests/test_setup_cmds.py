@@ -14,8 +14,9 @@ def temp_install(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     monkeypatch.delenv("OFFLOAD_CONFIG", raising=False)
-    monkeypatch.setattr(setup_cmds, "CFG", config.load_config())
-    return tmp_path
+    previous = config.set_config(config.load_config())
+    yield tmp_path
+    config.set_config(previous)
 
 
 def test_init_writes_starter_files_and_keeps_existing_ones(temp_install, capsys):
@@ -50,4 +51,4 @@ def test_demo_builds_a_failing_repo_and_queues_jobs(temp_install):
 
 def test_config_is_frozen_in_setup_too(temp_install):
     with pytest.raises(dataclasses.FrozenInstanceError):
-        setup_cmds.CFG.jobs_root = "x"
+        config.get_config().jobs_root = "x"

@@ -61,6 +61,7 @@ offload answer <job> yes
 - **Rate limits are its problem, not yours.** On a limit it reads the reset time, parks the job, and resumes the same session later.
 - **A waiting job does not block the queue.** A job that waits for you, a limit, or the budget is parked, and the next job runs. After a restart a job continues from the step it was on. It does not plan again.
 - **A budget you set.** It paces Claude use across the week and keeps a share for your own sessions.
+- **It cleans up after itself.** Finished jobs older than 14 days (`keep_days`) lose their clone and session folders, and the ledger rotates monthly. Reports and events stay.
 
 ## What it saves
 

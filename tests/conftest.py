@@ -1,10 +1,24 @@
 """Shared fixtures. No test touches the network, Docker, or the real home directory."""
+import dataclasses
 import os
 import types
 
 import pytest
 
-from offload import budget, jobs, limits, results, status
+from offload import budget, config, jobs, limits, results, status
+
+
+@pytest.fixture
+def settings(tmp_path):
+    """A Config whose files all live in tmp_path, installed for the length of the test."""
+    test_config = dataclasses.replace(
+        config.Config(), jobs_root=str(tmp_path / "jobs"), ledger=str(tmp_path / "ledger.jsonl"),
+        budget_file=str(tmp_path / "budget.yaml"), repos_file=str(tmp_path / "repos.yaml"),
+        token_file=str(tmp_path / "claude-token"), webhook_file=str(tmp_path / "discord-webhook"),
+        pause_file=str(tmp_path / "PAUSE"))
+    previous = config.set_config(test_config)
+    yield test_config
+    config.set_config(previous)
 
 
 @pytest.fixture(scope="session")
@@ -25,10 +39,8 @@ def api():
 
 
 @pytest.fixture
-def api_isolated(api, tmp_path, monkeypatch):
+def api_isolated(api, settings):
     """`api`, with the ledger and the budget file redirected into tmp_path."""
-    monkeypatch.setattr(budget, "LEDGER", str(tmp_path / "ledger.jsonl"))
-    monkeypatch.setattr(budget, "BUDGET_FILE", str(tmp_path / "budget.yaml"))
     return api
 
 

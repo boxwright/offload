@@ -6,7 +6,7 @@ import time
 import pytest
 from conftest import make_job_dir
 
-from offload import budget, daemon, engine, notify, progress, sandbox, status, workers
+from offload import budget, daemon, engine, jobs, notify, progress, sandbox, status, workers
 from offload.clock import iso_after
 from offload.jobs import Job
 
@@ -14,11 +14,9 @@ PLAN_TEXT = "1. write a.txt\n2. write b.txt\n3. write c.txt\n"
 
 
 @pytest.fixture(autouse=True)
-def quiet(tmp_path, monkeypatch):
+def quiet(settings, monkeypatch):
     """No webhook post, and the ledger and the budget file live in tmp_path."""
     monkeypatch.setattr(notify, "post_webhook", lambda text: (False, "test"))
-    monkeypatch.setattr(budget, "LEDGER", str(tmp_path / "ledger.jsonl"))
-    monkeypatch.setattr(budget, "BUDGET_FILE", str(tmp_path / "budget.yaml"))
     daemon._finished.clear()
 
 
@@ -227,3 +225,26 @@ def test_leftover_worker_containers_are_killed_by_label(monkeypatch):
     assert sandbox.kill_leftover_containers() == 2
     assert commands[0] == ["docker", "ps", "-q", "--filter", "label=offload.role=worker"]
     assert commands[1] == ["docker", "kill", "abc123", "def456"]
+
+
+def test_cancel_fails_a_parked_job_at_once(tmp_path, job_factory):
+    parked = job_factory("a", {"id": "a", "repo": "/r.git"})
+    status.set_status(parked, status.WAITING_OWNER, gate="publish", deadline=time.time() + 60)
+    jobs.cancel(parked)
+    assert status.job_status(parked)["status"] == status.FAILED
+    assert daemon._next_job(tmp_path) is None
+
+
+def test_a_cancelled_running_job_stops_before_its_next_worker_call(tmp_path, origin, monkeypatch):
+    fakes = Fakes(monkeypatch)
+    job_dir = make_job_dir(tmp_path / "jobs", "c", {"id": "c", "repo": origin})
+
+    def cancels_after_step_one(job, brief, purpose):
+        result = fakes.local(job, brief, purpose)
+        with open(job.path("cancel"), "w") as f:
+            f.write("now\n")
+        return result
+    monkeypatch.setattr(engine, "local_harness", cancels_after_step_one)
+    assert engine.run(job_dir) == engine.EXIT_CANCELLED
+    assert fakes.local_purposes == ["step 1"]
+    assert fakes.claude_purposes == ["plan"]

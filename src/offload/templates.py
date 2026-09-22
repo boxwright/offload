@@ -40,6 +40,8 @@ After=network-online.target docker.service
 ExecStart={offload} serve
 Restart=always
 RestartSec=10
+# A worker container ignores SIGTERM. The next start kills leftover containers, so a short stop is safe.
+TimeoutStopSec=15
 
 [Install]
 WantedBy=default.target
