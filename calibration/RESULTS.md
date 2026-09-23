@@ -65,3 +65,18 @@ kept retrying ("Every Python execution is blocked by the permission system"). Th
 `dontAsk` plus an allowlist that includes pytest, so the fair comparison is still to run (P2).
 Also in play: Claude Code's system prompt and 21 tool definitions are a much larger prefix than Hermes sends.
 Raw lines: `results-qwen-harness-2026-09-17.jsonl`.
+
+## 2026-09-23 — Qwen3.8-27B through the shipped path: Claude Code's harness inside the Offload sandbox, via the proxy (`run_harness.sh`)
+
+| Task | Pass | Wall | Turns | Output tokens |
+|---|---|---|---|---|
+| t1 slugify | yes | 18.5 s | 8 | 1,588 |
+| t2 daterange bug | yes | 14.7 s | 9 | 980 |
+| t3 wordfreq CLI | yes | 20.3 s | 8 | 1,568 |
+| t4 refactor report | yes | 12.7 s | 6 | 999 |
+| t5 LRU | yes | 9.3 s | 7 | 540 |
+
+**5/5. 75.5 s total.** Same model and box as the 2026-09-16 runs, now through the exact path a job uses (sandbox with
+the firewall, `dontAsk` with the job tool list, the LiteLLM proxy, the container caps). Scored inside a no-network
+container, because the host Python has no pytest. This is the baseline for any second model. Raw lines:
+`results-qwen3.8-harness-sandbox-2026-09-23.jsonl`.
