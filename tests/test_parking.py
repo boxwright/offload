@@ -16,7 +16,7 @@ PLAN_TEXT = "1. write a.txt\n2. write b.txt\n3. write c.txt\n"
 @pytest.fixture(autouse=True)
 def quiet(settings, monkeypatch):
     """No webhook post, and the ledger and the budget file live in tmp_path."""
-    monkeypatch.setattr(notify, "post_webhook", lambda text: (False, "test"))
+    monkeypatch.setattr(notify, "post", lambda text: (False, "test"))
     daemon._finished.clear()
 
 

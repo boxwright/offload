@@ -1,34 +1,20 @@
 """Telling the owner things: a Discord webhook, and the gate that parks a job until the owner answers."""
-import json
 import os
 import time
-import urllib.error
-import urllib.request
 
-from offload import status
+from offload import notifiers, status
 from offload.config import get_config
 from offload.files import read_text, remove_if_exists, write_text
 
 
-def post_webhook(text):
-    """Post one message. Returns (ok, detail) and never raises."""
-    try:
-        url = read_text(get_config().webhook_file).strip()
-    except FileNotFoundError:
-        return False, "no webhook file"
-    body = json.dumps({"content": text[:1900], "username": "offload"}).encode()
-    request = urllib.request.Request(
-        url, data=body, headers={"Content-Type": "application/json", "User-Agent": "offload/0.1"})
-    try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            return True, response.status
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        return False, str(exc)[:120]
+def post(text):
+    """Post a message through the notifier named in the config. Returns (ok, detail) and never raises."""
+    return notifiers.make_notifier(get_config()).post(text)
 
 
 def notify(job, text):
     """Post a message about a job and record the outcome in the job's events."""
-    ok, detail = post_webhook(text)
+    ok, detail = post(text)
     if ok:
         job.event("notify", ok=True, http=detail, text=text[:120])
     else:

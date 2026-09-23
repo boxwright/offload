@@ -103,9 +103,17 @@ def doctor():
         _check(f"budget file {settings.budget_file}", os.path.exists(settings.budget_file),
                "" if os.path.exists(settings.budget_file) else "offload init writes it"),
     ]
-    webhook = os.path.exists(settings.webhook_file)
-    print(f"  [{'ok' if webhook else 'optional'}] Discord webhook {settings.webhook_file}"
-          f"{'' if webhook else ' — without it, gate questions only appear in `offload status`'}")
+    if settings.notifier == "ntfy":
+        notifier_ok = bool(settings.ntfy_url)
+        label = f"ntfy {settings.ntfy_url}" if notifier_ok else "ntfy_url is empty"
+    elif settings.notifier == "none":
+        notifier_ok = False
+        label = "notifier: none"
+    else:
+        notifier_ok = os.path.exists(settings.webhook_file)
+        label = f"Discord webhook {settings.webhook_file}"
+    print(f"  [{'ok' if notifier_ok else 'optional'}] {label}"
+          f"{'' if notifier_ok else ' — without it, gate questions only appear in `offload status`'}")
     print("\nready" if all(required) else "\nnot ready: fix the MISSING items")
     return 0 if all(required) else 1
 

@@ -10,6 +10,8 @@
 - At start the daemon kills worker containers that a stopped daemon left running. Worker containers carry
   the label `offload.role=worker`.
 - `offload run` exits with code 10 when the job parks.
+- Notifiers: `notifier: discord` (the default, unchanged), `ntfy` (`ntfy_url`, optional `ntfy_token_file`), or `none`.
+  Both are tested against a fake HTTP server. ntfy is not yet proven against a real server.
 - Every worker container is capped: 4 GB of memory with no swap, 2 CPUs, 512 processes, and `no-new-privileges`
   (`sandbox_memory`, `sandbox_cpus`, `sandbox_pids`). The proxy in `install/compose.yaml` already had caps; a proxy
   started by hand with `docker run` should get the same flags.

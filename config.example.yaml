@@ -9,6 +9,10 @@
 # token_file: ~/.config/offload/claude-token
 # optional; chmod 600
 # webhook_file: ~/.config/offload/discord-webhook
+# Where messages go. discord needs webhook_file; ntfy needs ntfy_url and, for a protected topic, ntfy_token_file.
+# notifier: discord
+# ntfy_url: ""
+# ntfy_token_file: ~/.config/offload/ntfy-token
 # ledger: ~/.local/state/offload/ledger.jsonl
 # pause_file: ~/.local/state/offload/PAUSE
 # sandbox_image: offload-sandbox:latest

@@ -2,7 +2,7 @@
 
 **Use less credits with your home box AI.**
 
-Offload is a small daemon for people who own a GPU box and pay for Claude. You give it one line about a change you want in a repo. A model on your own GPU does the typing. Claude only plans, reviews, and rescues. You get a pushed branch, a report, and a message when it needs a decision.
+Offload is a small daemon for people who own a GPU box and pay for Claude. You give it one line about a change you want in a repo. A model on your own GPU does the typing. Claude only plans, reviews, and rescues. You get a pushed branch, a report, and a message on Discord or ntfy when it needs a decision.
 
 On our own jobs, Claude's share of the work was **36 seconds out of 13 minutes**.
 

@@ -88,7 +88,7 @@ def _cmd_cancel(args):
 
 def _cmd_digest(args):
     from offload.report import digest
-    digest(_jobs_root(args), post=not args.no_post)
+    digest(_jobs_root(args), send=not args.no_post)
     return 0
 
 

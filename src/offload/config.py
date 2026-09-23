@@ -62,6 +62,9 @@ class Config:
     repos_file: str = _in(config_dir, "repos.yaml")             # repositories intake may choose from
     token_file: str = _in(config_dir, "claude-token")           # from `claude setup-token`; chmod 600
     webhook_file: str = _in(config_dir, "discord-webhook")      # optional; chmod 600
+    notifier: str = "discord"                                   # discord, ntfy, or none
+    ntfy_url: str = ""                                          # the full topic URL, for example https://ntfy.sh/<topic>
+    ntfy_token_file: str = _in(config_dir, "ntfy-token")        # optional; chmod 600
     ledger: str = _in(state_dir, "ledger.jsonl")
     pause_file: str = _in(state_dir, "PAUSE")
 

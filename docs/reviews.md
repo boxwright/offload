@@ -45,7 +45,7 @@ serve loop (now `daemon.py`) stops re-reading finished jobs. 62 tests, ruff clea
 - ~~**Growth.**~~ Done 2026-09-21: `cleanup.py`, `keep_days`, monthly ledger archives. The dogfood branch for this item was rejected (it deleted whole job folders); see `jobs/a3-cleanup/REPORT.md`. Events are kept on purpose: they are the evidence. The month-boundary rotation has unit tests only, because every live ledger line is from the current month.
 - ~~**Waits block the single-job loop.**~~ Done 2026-09-20: a wait raises `Parked`, and the loop runs the next job. Proof: `jobs/a1-gated/` and `jobs/a1-plain/`.
 - **`tier` in job.md is unused.** Either route by it or drop it.
-- **Notifier interface.** Discord is the only notifier; make it one implementation behind `notify()`.
+- ~~**Notifier interface.**~~ Done 2026-09-23 by dogfood job `a5-notifier` ($0.54, no rescue, tests green after every step): `notifiers.py` with Discord, ntfy and none. ntfy has a fake-server test only.
 - **Installer:** see the section below.
 
 # Installer: proven and not proven

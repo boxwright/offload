@@ -12,7 +12,7 @@ from offload.budget import job_costs, load_budget, pace_status
 from offload.clock import TS_FMT, now
 from offload.files import read_jsonl, read_text, write_text
 from offload.jobs import job_dirs
-from offload.notify import post_webhook
+from offload.notify import post
 from offload.sandbox import sh
 
 _TITLE_RE = re.compile(r"^title:\s*(.+)$", re.M)
@@ -133,7 +133,7 @@ def _open_gates(jobs_root):
             if status.job_status(job_dir).get("status") == status.WAITING_OWNER]
 
 
-def digest(jobs_root, hours=24, post=True):
+def digest(jobs_root, hours=24, send=True):
     """The daily summary: outcomes, Claude spend against pace, local sessions, limits, open gates."""
     events = _by_kind(_recent_events(jobs_root, time.time() - hours * 3600))
     done = sorted({row["job"] for row in events["done"]})
@@ -153,6 +153,6 @@ def digest(jobs_root, hours=24, post=True):
         f"budget waits: {len(events['budget_wait'])}",
     ])
     print(text)
-    if post:
-        post_webhook(text)
+    if send:
+        post(text)
     return text
