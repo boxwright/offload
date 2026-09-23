@@ -44,7 +44,7 @@ serve loop (now `daemon.py`) stops re-reading finished jobs. 62 tests, ruff clea
 - ~~**Resumable phases.**~~ Done 2026-09-20: `progress.json` holds the phase and the step. Proof: `jobs/a2-killed/` (daemon restarted 4 s into step 2; one `plan` event; the job continued at step 2).
 - ~~**Growth.**~~ Done 2026-09-21: `cleanup.py`, `keep_days`, monthly ledger archives. The dogfood branch for this item was rejected (it deleted whole job folders); see `jobs/a3-cleanup/REPORT.md`. Events are kept on purpose: they are the evidence. The month-boundary rotation has unit tests only, because every live ledger line is from the current month.
 - ~~**Waits block the single-job loop.**~~ Done 2026-09-20: a wait raises `Parked`, and the loop runs the next job. Proof: `jobs/a1-gated/` and `jobs/a1-plain/`.
-- **`tier` in job.md is unused.** Either route by it or drop it.
+- ~~**`tier` in job.md is unused.**~~ Removed 2026-09-23 (the owner's decision). Every job starts on the local model; the plan, the review and a rescue are Claude's, and the models per phase are in `budget.yaml`.
 - ~~**Notifier interface.**~~ Done 2026-09-23 by dogfood job `a5-notifier` ($0.54, no rescue, tests green after every step): `notifiers.py` with Discord, ntfy and none. ntfy has a fake-server test only.
 - **Installer:** see the section below.
 - ~~**A10 API key and pinned CLI**~~ Done 2026-09-23 by hand: `claude_auth`, `api_key_file`, `CLAUDE_CODE_VERSION` in the Dockerfile. The API-key path has a unit test only; no key exists here and a live call would be a bill.

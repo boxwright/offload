@@ -83,7 +83,6 @@ def _write_job_file(job, spec):
         "repo": spec["repo"],
         "test": spec.get("test", DEFAULT_TEST_CMD),
         "branch": f"offload/{job.id}",
-        "tier": spec.get("tier", "local"),
         "gates": spec.get("gates", []),
         "public": "false",
     }

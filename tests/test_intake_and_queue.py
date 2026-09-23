@@ -88,3 +88,10 @@ def test_finished_jobs_are_not_offered_again(tmp_path):
     daemon._finished.clear()
     assert daemon._next_job(tmp_path) is None
     assert done in daemon._finished
+
+
+def test_intake_writes_no_tier_key(tmp_path):
+    job_dir = make_job_dir(tmp_path, "t")
+    intake._write_job_file(jobs.Job(job_dir), {"repo": "/r.git", "title": "T", "goal": "g", "done_when": "a | b"})
+    text = (tmp_path / "t" / "job.md").read_text()
+    assert "tier" not in text and "repo: /r.git" in text and "- a\n- b" in text

@@ -10,6 +10,7 @@
 - At start the daemon kills worker containers that a stopped daemon left running. Worker containers carry
   the label `offload.role=worker`.
 - `offload run` exits with code 10 when the job parks.
+- The unused `tier` key is gone from job files and from intake. A job file that still has it is accepted and the key is ignored.
 - `claude_auth: api_key` with `api_key_file`: the paid worker can run on an Anthropic API key instead of a
   subscription token. The sandbox image pins the Claude Code version (`CLAUDE_CODE_VERSION` build argument,
   2.1.278), so a CLI update cannot change how the worker signs in until the pin is raised.
