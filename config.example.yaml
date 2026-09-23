@@ -19,6 +19,16 @@
 # the model name the proxy exposes
 # local_model_name: local-model
 # local_max_turns: 40
+
+# Every worker container gets these hard limits. Memory has no swap behind it.
+# sandbox_memory: "4g"
+# sandbox_cpus: 2.0
+# sandbox_pids: 512
+
+# Every worker container gets these hard limits. Memory has no swap behind it.
+# sandbox_memory: "4g"
+# sandbox_cpus: 2.0
+# sandbox_pids: 512
 # claude_tools: "Read,Glob,Grep,Edit,Write,Bash(python3 *),Bash(python *),Bash(pytest *),Bash(git diff *),Bash(git status *),Bash(git log *),Bash(ls *),Bash(cat *)"
 # local_tools: "Read,Glob,Grep,Edit,Write,Bash(python3 *),Bash(python *),Bash(pytest *),Bash(git diff *),Bash(git status *),Bash(git log *),Bash(ls *),Bash(cat *),Bash(head *),Bash(tail *),Bash(wc *),Bash(grep *),Bash(find *),Bash(mkdir *),Bash(sed *),Bash(diff *)"
 # the author of the one commit per job

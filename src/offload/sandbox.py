@@ -67,11 +67,20 @@ def parse_cli_json(stdout, stderr):
         return {"is_error": True, "result": (stdout + stderr)[-500:]}
 
 
+def resource_limits():
+    """The `docker run` flags that cap a worker container: memory with no swap, CPUs, and processes."""
+    config = get_config()
+    return ["--memory", config.sandbox_memory, "--memory-swap", config.sandbox_memory,
+            "--cpus", str(config.sandbox_cpus), "--pids-limit", str(config.sandbox_pids),
+            "--security-opt", "no-new-privileges"]
+
+
 def _docker_run(args, inner, timeout, secret_env=None):
     """`docker run --rm <args> IMAGE <inner>`. The image's entry point raises the firewall, drops privileges,
     and runs `inner`. A timeout kills the container and returns exit code 124."""
     name = f"offload-{uuid.uuid4().hex[:12]}"
-    cmd = ["docker", "run", "--rm", "--name", name, "--label", WORKER_LABEL, *args, get_config().sandbox_image, inner]
+    cmd = ["docker", "run", "--rm", "--name", name, "--label", WORKER_LABEL, *resource_limits(), *args,
+           get_config().sandbox_image, inner]
     process_env = {**os.environ, **(secret_env or {})}
     try:
         return sh(_with_docker_group(cmd), timeout=timeout, env=process_env)

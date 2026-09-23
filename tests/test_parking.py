@@ -248,3 +248,18 @@ def test_a_cancelled_running_job_stops_before_its_next_worker_call(tmp_path, ori
     assert engine.run(job_dir) == engine.EXIT_CANCELLED
     assert fakes.local_purposes == ["step 1"]
     assert fakes.claude_purposes == ["plan"]
+
+
+def test_every_worker_container_is_capped(settings, monkeypatch):
+    commands = []
+
+    def fake_sh(cmd, **kwargs):
+        commands.append(cmd)
+        return 0, "", "", 0.0
+    monkeypatch.setattr(sandbox, "sh", fake_sh)
+    monkeypatch.setattr(sandbox, "_with_docker_group", lambda cmd: cmd)
+    sandbox.run_shell_in_sandbox("true", "/tmp/work")
+    cmd = commands[0]
+    for flag, value in (("--memory", "4g"), ("--memory-swap", "4g"), ("--cpus", "2.0"), ("--pids-limit", "512"),
+                        ("--security-opt", "no-new-privileges")):
+        assert cmd[cmd.index(flag) + 1] == value

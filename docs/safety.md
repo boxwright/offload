@@ -49,6 +49,13 @@ files, and a short list of shell commands (`python3`, `pytest`, `git diff`, `git
 the local worker also gets `head`, `tail`, `wc`, `grep`, `find`, `mkdir`, `sed`, `diff`). Anything else is
 refused by the harness without a prompt. The lists are `claude_tools` and `local_tools` in the config.
 
+## Resource caps
+
+Every worker container runs with a hard memory cap and no swap (`sandbox_memory`, default 4 GB), a CPU cap
+(`sandbox_cpus`, default 2), a process cap (`sandbox_pids`, default 512), and `no-new-privileges`. A runaway or
+forking process stops at the cap and the step fails. The model server and the proxy in `install/compose.yaml` have
+their own caps.
+
 ## Gates
 
 A job marked `public: true` stops before the push and asks you. The question goes to your Discord webhook and

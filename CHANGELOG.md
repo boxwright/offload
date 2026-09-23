@@ -10,6 +10,9 @@
 - At start the daemon kills worker containers that a stopped daemon left running. Worker containers carry
   the label `offload.role=worker`.
 - `offload run` exits with code 10 when the job parks.
+- Every worker container is capped: 4 GB of memory with no swap, 2 CPUs, 512 processes, and `no-new-privileges`
+  (`sandbox_memory`, `sandbox_cpus`, `sandbox_pids`). The proxy in `install/compose.yaml` already had caps; a proxy
+  started by hand with `docker run` should get the same flags.
 - The config loads on first use (`get_config()`), not at import. `set_config()` lets a test or a long-running
   process replace or re-read it.
 - Cleanup: a finished job older than `keep_days` (default 14, 0 turns it off) loses `work/`, `claude-home/` and

@@ -72,6 +72,9 @@ class Config:
     claude_allow_hosts: str = "api.anthropic.com"                # all the paid worker may reach, space separated
     local_model_name: str = "local-model"                        # the model name the proxy exposes
     local_max_turns: int = 40
+    sandbox_memory: str = "4g"                                   # hard cap per worker container; swap is not allowed
+    sandbox_cpus: float = 2.0                                    # CPU cores per worker container
+    sandbox_pids: int = 512                                      # process cap per worker container
     claude_tools: str = f"{READ_ONLY_TOOLS},{EDIT_TOOLS},{SAFE_SHELL_TOOLS}"
     local_tools: str = f"{READ_ONLY_TOOLS},{EDIT_TOOLS},{SAFE_SHELL_TOOLS},{LOCAL_SHELL_TOOLS}"
 
