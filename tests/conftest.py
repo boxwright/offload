@@ -14,7 +14,8 @@ def settings(tmp_path):
     test_config = dataclasses.replace(
         config.Config(), jobs_root=str(tmp_path / "jobs"), ledger=str(tmp_path / "ledger.jsonl"),
         budget_file=str(tmp_path / "budget.yaml"), repos_file=str(tmp_path / "repos.yaml"),
-        token_file=str(tmp_path / "claude-token"), webhook_file=str(tmp_path / "discord-webhook"),
+        token_file=str(tmp_path / "claude-token"), api_key_file=str(tmp_path / "anthropic-api-key"),
+        webhook_file=str(tmp_path / "discord-webhook"), ntfy_token_file=str(tmp_path / "ntfy-token"),
         pause_file=str(tmp_path / "PAUSE"))
     previous = config.set_config(test_config)
     yield test_config

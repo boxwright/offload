@@ -55,7 +55,9 @@ def init(systemd=True):
         _write_if_missing(os.path.join(units, "offload-digest.service"), DIGEST_SERVICE_UNIT.format(offload=command))
         _write_if_missing(os.path.join(units, "offload-digest.timer"), DIGEST_TIMER_UNIT)
     print("\nNext:")
-    if not os.path.exists(settings.token_file):
+    if settings.claude_auth == "api_key" and not os.path.exists(settings.api_key_file):
+        print(f"  1. save an Anthropic API key to {settings.api_key_file} (chmod 600)")
+    elif settings.claude_auth != "api_key" and not os.path.exists(settings.token_file):
         print(f"  1. claude setup-token        then save the token it prints to {settings.token_file} (chmod 600)")
     print("  2. offload doctor            checks Docker, the sandbox image, the model and the token")
     print("  3. systemctl --user enable --now offload.service offload-digest.timer")
@@ -74,6 +76,15 @@ def _http_ok(url):
             return response.status == 200
     except (urllib.error.URLError, OSError, ValueError):
         return False
+
+
+def _auth_check(settings):
+    """The doctor line for the paid worker's credential, by `claude_auth`: (label, ok, hint)."""
+    if settings.claude_auth == "api_key":
+        ok = _private(settings.api_key_file)
+        return f"Anthropic API key {settings.api_key_file}", ok, "" if ok else "save an API key there, chmod 600"
+    ok = _private(settings.token_file)
+    return f"Claude token {settings.token_file}", ok, "" if ok else "claude setup-token, save it there, chmod 600"
 
 
 def _private(path):
@@ -98,8 +109,7 @@ def doctor():
                "" if image_ok else "docker build -t it from sandbox/"),
         _check(f"Docker network {settings.docker_network}", network_ok, "" if network_ok else "start the model stack"),
         _check(f"local model proxy at {settings.proxy_url}", proxy_ok, "" if proxy_ok else "is the model stack up?"),
-        _check(f"Claude token {settings.token_file}", _private(settings.token_file),
-               "" if _private(settings.token_file) else "claude setup-token, save it there, chmod 600"),
+        _check(*_auth_check(settings)),
         _check(f"budget file {settings.budget_file}", os.path.exists(settings.budget_file),
                "" if os.path.exists(settings.budget_file) else "offload init writes it"),
     ]

@@ -112,19 +112,33 @@ def _call_claude(job, prompt, model, max_turns, resume=None):
         "OFFLOAD_ALLOW_HOSTS": get_config().claude_allow_hosts,
         "OFFLOAD_VERIFY_HOST": get_config().claude_allow_hosts.split()[0],
     }
-    secret_env = {"CLAUDE_CODE_OAUTH_TOKEN": _subscription_token()}
+    secret_env = claude_secret()
     mounts = [(workdir, "/workspace"), (claude_home, "/home/worker/.claude")]
     inner = claude_cmdline(prompt, model, get_config().claude_tools, max_turns, resume=resume)
     reply, _, _, wall = run_sandbox(inner, env, mounts, secret_env=secret_env)
     return reply, wall
 
 
-def _subscription_token():
+def claude_secret():
+    """The one secret the paid worker's container receives, by `claude_auth`: the subscription token as
+    CLAUDE_CODE_OAUTH_TOKEN, or an API key as ANTHROPIC_API_KEY. It goes through the process environment, never
+    the command line."""
+    config = get_config()
+    if config.claude_auth == "api_key":
+        return {"ANTHROPIC_API_KEY": _secret_file(config.api_key_file, "no Anthropic API key at {path}: save one "
+                                                  "there (chmod 600), or set claude_auth: subscription")}
+    if config.claude_auth == "subscription":
+        return {"CLAUDE_CODE_OAUTH_TOKEN": _secret_file(config.token_file, "no Claude token at {path}: run "
+                                                        "`claude setup-token` and save the token it prints to "
+                                                        "that file (chmod 600)")}
+    raise ValueError(f"unknown claude_auth {config.claude_auth!r}: allowed are subscription, api_key")
+
+
+def _secret_file(path, missing):
     try:
-        return read_text(get_config().token_file).strip()
+        return read_text(path).strip()
     except FileNotFoundError:
-        raise RuntimeError(f"no Claude token at {get_config().token_file}: run `claude setup-token` and save "
-                           "the token it prints to that file (chmod 600)") from None
+        raise RuntimeError(missing.format(path=path)) from None
 
 
 def _resume_or_rerun(job, prompt, model, max_turns, session_id):

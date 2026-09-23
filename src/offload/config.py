@@ -60,7 +60,9 @@ class Config:
     jobs_root: str = _in(data_dir, "jobs")
     budget_file: str = _in(config_dir, "budget.yaml")
     repos_file: str = _in(config_dir, "repos.yaml")             # repositories intake may choose from
+    claude_auth: str = "subscription"                            # subscription (token_file) or api_key (api_key_file)
     token_file: str = _in(config_dir, "claude-token")           # from `claude setup-token`; chmod 600
+    api_key_file: str = _in(config_dir, "anthropic-api-key")    # an Anthropic API key; billed per call; chmod 600
     webhook_file: str = _in(config_dir, "discord-webhook")      # optional; chmod 600
     notifier: str = "discord"                                   # discord, ntfy, or none
     ntfy_url: str = ""                                          # the full topic URL, for example https://ntfy.sh/<topic>

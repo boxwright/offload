@@ -1,4 +1,5 @@
 """Parking and resume: a waiting job gives the loop back, and a job that goes again skips what is finished."""
+import dataclasses
 import os
 import subprocess
 import time
@@ -6,7 +7,7 @@ import time
 import pytest
 from conftest import make_job_dir
 
-from offload import budget, daemon, engine, jobs, notify, progress, sandbox, status, workers
+from offload import budget, config, daemon, engine, jobs, notify, progress, sandbox, setup_cmds, status, workers
 from offload.clock import iso_after
 from offload.jobs import Job
 
@@ -263,3 +264,21 @@ def test_every_worker_container_is_capped(settings, monkeypatch):
     for flag, value in (("--memory", "4g"), ("--memory-swap", "4g"), ("--cpus", "2.0"), ("--pids-limit", "512"),
                         ("--security-opt", "no-new-privileges")):
         assert cmd[cmd.index(flag) + 1] == value
+
+
+def test_the_paid_worker_gets_the_token_or_the_api_key_by_claude_auth(settings, tmp_path):
+    (tmp_path / "claude-token").write_text("tok\n")
+    (tmp_path / "anthropic-api-key").write_text("sk-key\n")
+    assert workers.claude_secret() == {"CLAUDE_CODE_OAUTH_TOKEN": "tok"}
+    config.set_config(dataclasses.replace(settings, claude_auth="api_key"))
+    assert workers.claude_secret() == {"ANTHROPIC_API_KEY": "sk-key"}
+    assert setup_cmds._auth_check(config.get_config())[0].startswith("Anthropic API key")
+    config.set_config(dataclasses.replace(settings, claude_auth="basic"))
+    with pytest.raises(ValueError):
+        workers.claude_secret()
+
+
+def test_a_missing_credential_names_the_file(settings):
+    with pytest.raises(RuntimeError) as err:
+        workers.claude_secret()
+    assert settings.token_file in str(err.value)

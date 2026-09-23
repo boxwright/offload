@@ -6,7 +6,11 @@
 # repositories intake may choose from
 # repos_file: ~/.config/offload/repos.yaml
 # from `claude setup-token`; chmod 600
+# How the paid worker signs in. subscription: the token from `claude setup-token` in token_file, drawn from your
+# Pro or Max plan. api_key: the key in api_key_file, billed per call at API prices.
+# claude_auth: subscription
 # token_file: ~/.config/offload/claude-token
+# api_key_file: ~/.config/offload/anthropic-api-key
 # optional; chmod 600
 # webhook_file: ~/.config/offload/discord-webhook
 # Where messages go. discord needs webhook_file; ntfy needs ntfy_url and, for a protected topic, ntfy_token_file.

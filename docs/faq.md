@@ -1,5 +1,12 @@
 # Questions people ask
 
+**Can I use an API key instead of a subscription?**
+Yes: `claude_auth: api_key` and the key in `api_key_file`. The worker then runs with `ANTHROPIC_API_KEY` and every
+call is billed at API prices. The subscription path is the default. Anthropic's docs say the `--bare` mode of
+`claude -p`, which does not read a subscription login, will become the default in a future release; the sandbox
+image pins the Claude Code version (`sandbox/Dockerfile`) so an update cannot change how Offload signs in without
+you raising the pin.
+
 **Is this allowed with a Claude subscription?**
 Offload runs Claude Code in its documented print mode, on your own machine, with a token you create yourself
 with `claude setup-token`. Anthropic's documentation describes that token for scripts and other non-interactive
@@ -10,7 +17,8 @@ yourself. Offload is not affiliated with or endorsed by Anthropic.
 **So what do I actually save?**
 Usage against your plan's limits. On our jobs the paid model worked for seconds while the local model worked
 for minutes (see the table in the README, and the reports under `jobs/`). The dollar figures Offload prints are
-what the same calls would cost at API list prices. They are a yardstick for pacing, not a bill.
+what the same calls would cost at API list prices. They are a yardstick for pacing, not a bill. With
+`claude_auth: api_key` the same figures are your bill.
 
 **Why not just point Claude Code at my local model for everything?**
 You can. Offload's bet is different: a strong model is worth its cost for three short moments (the plan, the

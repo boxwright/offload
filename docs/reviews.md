@@ -47,6 +47,7 @@ serve loop (now `daemon.py`) stops re-reading finished jobs. 62 tests, ruff clea
 - **`tier` in job.md is unused.** Either route by it or drop it.
 - ~~**Notifier interface.**~~ Done 2026-09-23 by dogfood job `a5-notifier` ($0.54, no rescue, tests green after every step): `notifiers.py` with Discord, ntfy and none. ntfy has a fake-server test only.
 - **Installer:** see the section below.
+- ~~**A10 API key and pinned CLI**~~ Done 2026-09-23 by hand: `claude_auth`, `api_key_file`, `CLAUDE_CODE_VERSION` in the Dockerfile. The API-key path has a unit test only; no key exists here and a live call would be a bill.
 
 # Installer: proven and not proven
 
