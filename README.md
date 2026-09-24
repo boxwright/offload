@@ -33,13 +33,19 @@ It asks before every download, tells you sizes first, and never sees your Claude
 
 ## Use
 
+The full procedure, for people and for a Claude Code session, is [docs/use.md](docs/use.md) and the skill in
+[skills/offload/](skills/offload/SKILL.md) (`cp -r skills/offload ~/.claude/skills/`). The short form:
+
 ```bash
 offload demo             # a two-minute job on a sample repo, to watch it work
 offload add "In my-repo, add input validation to the signup form and tests for it"
+offload add --spec job.md            # a job.md-style spec: front matter plus Goal / Done when (skips intake)
+offload add --spec job.md --confirm  # as above, but the job asks you to confirm before it runs
 offload status          # every job: state, cost so far, last event
 offload report <job>    # what changed, what it cost, what was decided and by whom
 offload cost            # this week against your allowance
 offload answer <job> yes
+offload retry <job>     # re-queue a failed job, reusing its spec and plan
 ```
 
 ## How it works
@@ -61,6 +67,7 @@ offload answer <job> yes
 - **Rate limits are its problem, not yours.** On a limit it reads the reset time, parks the job, and resumes the same session later.
 - **A waiting job does not block the queue.** A job that waits for you, a limit, or the budget is parked, and the next job runs. After a restart a job continues from the step it was on. It does not plan again.
 - **A budget you set.** It paces Claude use across the week and keeps a share for your own sessions.
+- **A planner that is bounded.** The first Claude call has a turn budget (`plan_max_turns`, default 20) and two modes: read the repo, or take its file tree and plan from that (`plan_reads: index`). Why, and how to measure it: [docs/design/plan-reads.md](docs/design/plan-reads.md).
 - **It cleans up after itself.** Finished jobs older than 14 days (`keep_days`) lose their clone and session folders, and the ledger rotates monthly. Reports and events stay.
 
 ## What it saves

@@ -5,11 +5,11 @@ import re
 
 import yaml
 
-from offload import status
+from offload import notify, status
 from offload.files import read_json, write_json, write_text
-from offload.jobs import DEFAULT_TEST_CMD, Job, known_repos
-from offload.notify import ask_owner
+from offload.jobs import DEFAULT_TEST_CMD, Job
 from offload.prompts import intake_prompt
+from offload.repos import known_repos
 from offload.workers import claude
 
 _FENCE_RE = re.compile(r"```(?:yaml|yml)?\s*\n(.*?)```", re.S)
@@ -49,13 +49,14 @@ def intake(job_dir):
         status.set_status(job_dir, status.FAILED, reason="intake parse")
         return False
     if str(spec.get("repo", "UNKNOWN")).upper() == "UNKNOWN":
-        answer = ask_owner(job, "intake", f"Which repository is `{request[:120]}` about? "
-                                          "Reply with a path or git URL, or `skip`.")
+        answer = notify.ask_owner(job, "intake", f"Which repository is `{request[:120]}` about? "
+                                                 "Reply with a path or git URL, or `skip`.")
         if not answer or answer.strip().lower() == "skip":
             status.set_status(job_dir, status.FAILED, reason="no repo")
             return False
         spec["repo"] = answer.strip()
     _write_job_file(job, spec)
+    notify.notify(job, _drafted_message(job, spec))
     job.event("intake", repo=spec["repo"], title=spec.get("title"))
     status.set_status(job_dir, status.READY)
     return True
@@ -67,7 +68,12 @@ def _drafted_spec(job, request):
     spec_file = job.path("intake.json")
     if os.path.exists(spec_file):
         return read_json(spec_file)
-    reply, _ = claude(job, intake_prompt(request, known_repos()), model="auto", max_turns=2, purpose="plan")
+    try:
+        repos = known_repos()
+    except ValueError as exc:
+        job.event("repos_unreadable", reason=str(exc)[:200])
+        repos = {}                      # intake will ask the owner which repository it is
+    reply, _ = claude(job, intake_prompt(request, repos), model="auto", max_turns=2, purpose="plan")
     spec = extract_yaml(reply)
     if spec is None:
         job.event("intake_failed", text=reply[:200])
@@ -91,3 +97,11 @@ def _write_job_file(job, spec):
     done_when = "\n".join(f"- {item.strip()}" for item in str(spec.get("done_when", "")).split("|") if item.strip())
     goal = str(spec.get("goal", "")).strip()
     write_text(job.path("job.md"), f"---\n{header}\n---\n## Goal\n{goal}\n\n## Done when\n{done_when}\n")
+
+
+def _drafted_message(job, spec):
+    """The owner-facing summary of a freshly drafted job: its title, goal, and done-when list."""
+    title = spec.get("title", job.id)
+    goal = str(spec.get("goal", "")).strip()
+    done_when = "\n".join(f"- {item.strip()}" for item in str(spec.get("done_when", "")).split("|") if item.strip())
+    return f"**[{job.id}] drafted**\ntitle: {title}\ngoal: {goal}\ndone when:\n{done_when}"

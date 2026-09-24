@@ -143,6 +143,11 @@ def budget_wait(job, purpose):
     raise status.Parked(status.WAITING_BUDGET, until=iso_after(pace.wait_s), wait_s=pace.wait_s)
 
 
+def plan_attempts():
+    """How many times the planner may be asked before the job fails with no plan steps."""
+    return int(load_budget().get("claude", {}).get("per_job", {}).get("max_plan_attempts", 2))
+
+
 def model_for(purpose):
     """Which Claude model a call uses: `plan`, `rescue …` and everything else (`review`)."""
     models = load_budget().get("claude", {}).get("models", {})

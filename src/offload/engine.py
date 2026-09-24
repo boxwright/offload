@@ -12,12 +12,13 @@ import re
 import shutil
 
 from offload import progress
-from offload.budget import job_cost, load_budget
-from offload.config import get_config
+from offload.budget import job_cost, load_budget, plan_attempts
+from offload.clock import now
+from offload.config import get_config, plan_tools
 from offload.files import read_text, write_text
 from offload.jobs import Job
 from offload.notify import ask_owner, notify
-from offload.prompts import plan_prompt, rescue_prompt, review_fix_prompt, review_prompt, step_brief
+from offload.prompts import plan_prompt, plan_retry_prompt, rescue_prompt, review_fix_prompt, review_prompt, step_brief
 from offload.report import diff_stat
 from offload.results import is_approved, is_stuck, is_yes
 from offload.sandbox import sh
@@ -57,12 +58,33 @@ def run(job_dir):
         return EXIT_CANCELLED
 
 
+def _confirm_gate(job):
+    """Gate a `--confirm` job on the owner's approval, before the worktree is prepared.
+
+    The first call asks the owner and parks the job in WAITING_OWNER. The call after the wake returns the
+    answer: an approval is recorded in `confirmed` and lets the job continue; a decline or a timeout fails
+    with EXIT_GATE. A job without the flag, or one already approved, runs straight on.
+    """
+    if not job.flag("confirm") or os.path.exists(job.path("confirmed")):
+        return True
+    answer = ask_owner(job, "confirm", f"Run job `{job.id}`: {job.title or job.id}? Reply `yes` to start it.")
+    if not is_yes(answer):
+        declined = "timeout" if answer is None else f"declined: {answer[:80]}"
+        job.event("fail", reason=f"confirm gate: {declined}")
+        notify(job, f"[{job.id}] not run ({'no answer' if answer is None else 'declined'}).")
+        return False
+    write_text(job.path("confirmed"), now() + "\n")
+    return True
+
+
 def _run(job_dir):
     """Run one job to its end, or to its next wait (`status.Parked` passes through to the caller).
 
     Returns an exit code; every failure is also a `fail` event with a reason.
     """
     job = Job(job_dir)
+    if not _confirm_gate(job):
+        return EXIT_GATE
     checkpoint = progress.load(job)
     if checkpoint.get("phase") == progress.PLAN:
         job.event("start", repo=job.repo, branch=job.branch)
@@ -113,13 +135,31 @@ def _prepare_worktree(job):
     return base
 
 
+_PLAN_RETRY_EXTRA_TURNS = 10     # a retry gets this many turns more than `plan_max_turns`
+
+
 def _plan(job):
-    """The plan text and its steps. The planner runs once per job; a job that continues reads `plan.txt`."""
+    """The plan text and its steps. The planner runs once per job; a job that continues reads `plan.txt`.
+
+    A plan that comes back empty is not a dead end: the ladder re-asks, escalating the turn budget and
+    then narrowing the prompt, until `plan_attempts()` attempts are spent.
+    `plan_reads: index` hands the planner the `git ls-files` file tree instead of letting it read the repo.
+    """
     plan_file = job.path("plan.txt")
     if os.path.exists(plan_file):
         plan_text = read_text(plan_file)
         return plan_text, _steps_of(plan_text)
-    plan_text, _ = claude(job, plan_prompt(job), model="auto", max_turns=8, purpose="plan")
+    config = get_config()
+    tree = _file_tree(job.work) if config.plan_reads == "index" else None
+    attempts = plan_attempts()
+    plan_text, meta = "", {}
+    for attempt in range(1, attempts + 1):
+        prompt, max_turns = _plan_call(job, attempt, config, tree)
+        job.event("plan_attempt", attempt=attempt, reason=_plan_reason(attempt, meta), max_turns=max_turns)
+        plan_text, meta = claude(job, prompt, model="auto", max_turns=max_turns, purpose="plan",
+                                 tools=plan_tools(config))
+        if _steps_of(plan_text) and not _ended_on_max_turns(meta):
+            break
     steps = _steps_of(plan_text)
     if steps:
         write_text(plan_file, plan_text)
@@ -128,6 +168,36 @@ def _plan(job):
         rescues = int(load_budget().get("claude", {}).get("per_job", {}).get("max_rescues", 2))
         progress.save(job, phase=progress.STEPS, step=1, rescues_left=rescues)
     return plan_text, steps
+
+
+def _plan_call(job, attempt, config, tree):
+    """The prompt and turn budget for a plan attempt: the first is the full ask with `plan_max_turns`, the
+    first retry gets ten more turns, and the narrowed re-ask takes over from the second retry on."""
+    if attempt == 1:
+        return plan_prompt(job, tree), config.plan_max_turns
+    if attempt == 2:
+        return plan_prompt(job, tree), config.plan_max_turns + _PLAN_RETRY_EXTRA_TURNS
+    return plan_retry_prompt(job), config.plan_max_turns + _PLAN_RETRY_EXTRA_TURNS
+
+
+def _plan_reason(attempt, meta):
+    """Why the ladder is asking again: the previous attempt's failure, or the first attempt."""
+    if attempt == 1:
+        return "first attempt"
+    if _ended_on_max_turns(meta):
+        return "previous attempt ended on max_turns"
+    return "previous attempt had no steps"
+
+
+def _ended_on_max_turns(meta):
+    """Whether the worker's own record says the run stopped at its turn budget."""
+    return meta.get("terminal_reason") == "max_turns"
+
+
+def _file_tree(work):
+    """The worktree's `git ls-files` file tree, one path per line, for the index-mode planner."""
+    code, out, _, _ = sh(["git", "ls-files"], cwd=work)
+    return out.strip() if code == 0 else ""
 
 
 def _steps_of(plan_text):

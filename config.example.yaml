@@ -27,6 +27,10 @@
 # the model name the proxy exposes
 # local_model_name: local-model
 # local_max_turns: 40
+# the planner's turn budget
+# plan_max_turns: 20
+# "full" lets the planner read the repo with its tools; "index" passes it a `git ls-files` tree instead
+# plan_reads: full
 
 # Every worker container gets these hard limits. Memory has no swap behind it.
 # sandbox_memory: "4g"

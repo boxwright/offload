@@ -9,7 +9,7 @@ Run `install/preflight.sh` first: it reads your machine and tells you, and it in
 | You need | Why |
 |---|---|
 | A Linux box with an NVIDIA GPU with **24 GB of VRAM or more** (32 GB is what we tested) | the local model lives in GPU memory |
-| **32 GB of system RAM or more**, 60 GB of free disk | the model file is 20 GB; the sandbox image is 2.4 GB |
+| **32 GB of system RAM or more**, 60 GB of free disk | the model file is 20 GB; the sandbox image is 733 MB |
 | Docker with the NVIDIA Container Toolkit | the model server and the sandbox run in containers |
 | Your own **Claude Pro or Max** subscription | planning, review and rescue still use Claude; this tool never shares accounts |
 | Comfort pasting one command into a terminal | the installer does the rest |

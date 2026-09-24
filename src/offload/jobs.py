@@ -5,8 +5,7 @@ import time
 
 from offload import status
 from offload.clock import now
-from offload.config import get_config
-from offload.files import append_jsonl, read_text, write_text
+from offload.files import append_jsonl, read_text, remove_if_exists, write_text
 from offload.notify import notify
 
 _FRONT_MATTER_RE = re.compile(r"---\n(.*?)\n---\n(.*)", re.S)
@@ -33,6 +32,14 @@ class Job:
 
     def path(self, name):
         return os.path.join(self.dir, name)
+
+    @property
+    def note(self):
+        """The owner's note for the next run, read from an optional `note.txt`. Empty when absent."""
+        try:
+            return read_text(self.path("note.txt")).strip()
+        except FileNotFoundError:
+            return ""
 
     def flag(self, key):
         """A true/false front matter key such as `public` or `allow_test_edits`."""
@@ -65,18 +72,22 @@ def job_dirs(jobs_root, include_hidden=False):
     return [os.path.join(jobs_root, name) for name in names if include_hidden or not name.startswith("_")]
 
 
-def known_repos():
-    """The repositories intake may choose from (`repos_file`): path or URL -> one line on what it is."""
-    if not os.path.exists(get_config().repos_file):
-        return {}
-    import yaml
-    with open(get_config().repos_file) as f:
-        return yaml.safe_load(f) or {}
+def _parse_spec(spec_file):
+    """A `job.md`-style spec file: its front matter mapping and its body (Goal / Done when)."""
+    text = read_text(spec_file)
+    match = _FRONT_MATTER_RE.match(text)
+    if not match:
+        return {}, text
+    return _parse_front_matter(match.group(1)), match.group(2)
 
 
-def add(jobs_root, text):
-    """Queue a one-line idea. Intake turns it into a full job file."""
-    text = text.strip()
+def add(jobs_root, text, spec_file=None, confirm=False):
+    """Queue a job. A one-line `text` lands in the inbox for intake to draft.
+
+    A `job.md`-style `spec_file` is copied straight into the new job's `job.md` with its
+    `id`/`branch`/`test` filled in and the status set to `ready`, so intake's Claude call is
+    skipped. `confirm=True` writes `confirm: true` into the front matter on either path.
+    """
     stamp = time.strftime("j%Y%m%d-%H%M%S")
     job_id, suffix = stamp, 1
     while os.path.exists(os.path.join(jobs_root, job_id)):
@@ -84,9 +95,29 @@ def add(jobs_root, text):
         job_id = f"{stamp}-{suffix}"
     job_dir = os.path.join(jobs_root, job_id)
     os.makedirs(job_dir)
-    write_text(os.path.join(job_dir, "job.md"), f"---\nid: {job_id}\ntitle: {text[:80]}\n---\n## Goal\n{text}\n")
-    status.set_status(job_dir, status.INBOX)
-    print(f"added {job_id}: {text[:80]}")
+    if spec_file is not None:
+        meta, body = _parse_spec(spec_file)
+        front = dict(meta)
+        front["id"] = job_id
+        front.setdefault("branch", f"offload/{job_id}")
+        front.setdefault("test", DEFAULT_TEST_CMD)
+        if confirm:
+            front["confirm"] = "true"
+        header = "\n".join(f"{key}: {value}" for key, value in front.items())
+        write_text(os.path.join(job_dir, "job.md"), f"---\n{header}\n---\n{body}")
+        state = status.READY
+        title = meta.get("title") or meta.get("id") or job_id
+    else:
+        text = text.strip()
+        front = {"id": job_id, "title": text[:80]}
+        if confirm:
+            front["confirm"] = "true"
+        header = "\n".join(f"{key}: {value}" for key, value in front.items())
+        write_text(os.path.join(job_dir, "job.md"), f"---\n{header}\n---\n## Goal\n{text}\n")
+        state = status.INBOX
+        title = text[:80]
+    status.set_status(job_dir, state)
+    print(f"added {job_id}: {title}")
     return job_id
 
 
@@ -112,3 +143,28 @@ def answer(job_dir, text):
     path = os.path.join(os.path.abspath(job_dir), "answer.txt")
     write_text(path, text.strip() + "\n")
     print(f"answer recorded: {path}")
+
+
+def retry(job_dir, note=None, replan=False):
+    """Re-queue a failed job: clear the run's leftovers and set it back to ready, reusing the stored spec.
+
+    The job must be `failed`; anything else is refused and its current state is named. `note`, when given,
+    is written to `note.txt` so the next run's brief carries it. The checkpoint and the terminal report's
+    leftovers go; the stored plan goes only when `replan` is set. `job.md` and `intake.json` are always
+    kept, so the daemon re-runs the job without another intake call. Returns 0 on success, 1 when refused.
+    """
+    job_dir = os.path.abspath(job_dir)
+    state = status.job_status(job_dir).get("status")
+    if state != status.FAILED:
+        print(f"cannot retry: the job is {state}, not failed")
+        return 1
+    if note is not None:
+        write_text(os.path.join(job_dir, "note.txt"), note.strip() + "\n")
+    for name in ("progress.json", "cancel", "answer.txt", "REPORT.md"):
+        remove_if_exists(os.path.join(job_dir, name))
+    if replan:
+        for name in ("plan.txt", "plan.md"):
+            remove_if_exists(os.path.join(job_dir, name))
+    status.set_status(job_dir, status.READY, retried=now())
+    print(f"requeued {os.path.basename(job_dir)}" + (" (plan will be made again)" if replan else ""))
+    return 0

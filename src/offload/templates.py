@@ -15,6 +15,7 @@ claude:
     rescue: sonnet
   per_job:
     max_rescues: 2
+    max_plan_attempts: 2
 escalate_when:
   failed_test_iterations: 3
   no_progress_turns: 2

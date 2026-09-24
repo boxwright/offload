@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import sys
 
 DESCRIPTION = "Offload: make your Claude subscription last longer by doing the typing on a local model."
 
@@ -52,7 +53,10 @@ def _cmd_run(args):
 
 def _cmd_add(args):
     from offload.jobs import add
-    add(_jobs_root(args), " ".join(args.text))
+    if args.spec is None and not args.text:
+        print("offload add: give a one-line job or --spec FILE", file=sys.stderr)
+        return 2
+    add(_jobs_root(args), " ".join(args.text or []), spec_file=args.spec, confirm=args.confirm)
     return 0
 
 
@@ -70,7 +74,14 @@ def _cmd_cost(args):
 
 def _cmd_report(args):
     from offload.files import read_text
-    print(read_text(os.path.join(_job_dir(args.job_dir), "REPORT.md")))
+    from offload.status import job_status
+    job_dir = _job_dir(args.job_dir)
+    try:
+        print(read_text(os.path.join(job_dir, "REPORT.md")))
+    except FileNotFoundError:
+        state = job_status(job_dir).get("status", "unknown")
+        print(f"no report yet: the job is {state}. A report is written when a job ends.")
+        return 1
     return 0
 
 
@@ -80,10 +91,22 @@ def _cmd_answer(args):
     return 0
 
 
+def _cmd_repo(args):
+    from offload import repos
+    if args.repo_command == "add":
+        return repos.add(args.target, args.description)
+    return repos.list_repos()
+
+
 def _cmd_cancel(args):
     from offload.jobs import cancel
     cancel(_job_dir(args.job_dir))
     return 0
+
+
+def _cmd_retry(args):
+    from offload.jobs import retry
+    return retry(_job_dir(args.job_dir), note=args.note, replan=args.replan)
 
 
 def _cmd_digest(args):
@@ -141,17 +164,31 @@ def build_parser():
     command("demo", _cmd_demo, "queue a two-minute job on a sample repository")
     command("serve", _cmd_serve, "watch the jobs root and run jobs one at a time", jobs_root=True)
     command("run", _cmd_run, "run one job end to end").add_argument("job_dir", help="a job id or a path")
-    add = command("add", _cmd_add, "add a one-line job to the inbox")
+    add = command("add", _cmd_add, "add a job: a one-line text, or a job.md-style spec with --spec")
     add.add_argument("--jobs", default=None, help="the jobs root (default: jobs_root in the config)")
-    add.add_argument("text", nargs="+")
+    add.add_argument("--spec", default=None,
+                     help="a job.md-style spec file: front matter plus Goal / Done when (skips intake)")
+    add.add_argument("--confirm", action="store_true", help="ask the owner to confirm the job before it runs")
+    add.add_argument("text", nargs="*", help="a one-line job (or use --spec FILE)")
     command("status", _cmd_status, "print a table of jobs and their status", jobs_root=True)
     command("cost", _cmd_cost, "print weekly spend and the per-job cost ledger", jobs_root=True)
     command("report", _cmd_report, "print a finished job's REPORT.md").add_argument("job_dir")
     answer = command("answer", _cmd_answer, "record the owner's answer to an open gate")
     answer.add_argument("job_dir")
     answer.add_argument("text", nargs="+")
+    repo = command("repo", _cmd_repo, "register or list the repositories Offload may work on")
+    repo_commands = repo.add_subparsers(dest="repo_command")
+    repo_add = repo_commands.add_parser("add", help="verify a repository with git ls-remote and add it to repos.yaml")
+    repo_add.add_argument("target", help="a path or a git URL that the box that runs offload can reach")
+    repo_add.add_argument("description", help="one line on what it is, in quotes")
+    repo_commands.add_parser("list", help="print the registered repositories")
+    repo.set_defaults(repo_command="list")
     cancel = command("cancel", _cmd_cancel, "stop a job: now if it waits, before its next worker call if it runs")
     cancel.add_argument("job_dir")
+    retry = command("retry", _cmd_retry, "re-queue a failed job, reusing its spec and plan")
+    retry.add_argument("job_dir")
+    retry.add_argument("--note", default=None, help="a note for the next run's brief")
+    retry.add_argument("--replan", action="store_true", help="drop the stored plan so it is made again")
     digest = command("digest", _cmd_digest, "print (and post) the daily digest", jobs_root=True)
     digest.add_argument("--no-post", action="store_true", help="print only")
     command("budget", _cmd_budget, "print the budget pacer state as JSON")

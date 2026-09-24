@@ -67,10 +67,11 @@ def local_harness(job, brief, purpose):
     return text, meta
 
 
-def claude(job, prompt, model, max_turns, purpose):
+def claude(job, prompt, model, max_turns, purpose, tools=None):
     """One Claude call for a job: paced, retried when overloaded, parked at a rate limit.
 
     A call that a limit cut short is recorded as pending. The same call after the wake resumes that session.
+    `tools` is the `--allowedTools` string; `None` uses the config's `claude_tools`.
     Returns (reply text, event fields).
     """
     _park_if_claude_is_blocked(job)
@@ -81,9 +82,9 @@ def claude(job, prompt, model, max_turns, purpose):
     if session_id:
         job.event("resume", session=session_id)
         progress.save(job, pending=None)
-        reply, wall = _resume_or_rerun(job, prompt, model, max_turns, session_id)
+        reply, wall = _resume_or_rerun(job, prompt, model, max_turns, session_id, tools)
     else:
-        reply, wall = _call_claude(job, prompt, model, max_turns)
+        reply, wall = _call_claude(job, prompt, model, max_turns, tools=tools)
         reply = _maybe_simulate_limit(job, purpose, reply)
     overloaded_tries = 0
     while True:
@@ -94,15 +95,18 @@ def claude(job, prompt, model, max_turns, purpose):
             overloaded_tries += 1
             job.event("overloaded", try_=overloaded_tries)
             time.sleep(30 * overloaded_tries)
-            reply, wall = _call_claude(job, prompt, model, max_turns)
+            reply, wall = _call_claude(job, prompt, model, max_turns, tools=tools)
         elif kind == results.LIMIT and _limit_parks(job) < MAX_LIMIT_WAITS:
             _park_for_limit(job, reply, purpose)
         else:
             return text, meta
 
 
-def _call_claude(job, prompt, model, max_turns, resume=None):
-    """Run Claude Code once in the sandbox with the subscription token. Returns (reply, wall seconds)."""
+def _call_claude(job, prompt, model, max_turns, resume=None, tools=None):
+    """Run Claude Code once in the sandbox with the subscription token. Returns (reply, wall seconds).
+
+    `tools` is the `--allowedTools` string; `None` uses the config's `claude_tools`.
+    """
     claude_home = job.path("claude-home")           # sessions outlive the container, so --resume works
     os.makedirs(claude_home, exist_ok=True)
     workdir = job.work if os.path.isdir(job.work) else job.path("scratch")   # intake has no clone yet
@@ -114,7 +118,9 @@ def _call_claude(job, prompt, model, max_turns, resume=None):
     }
     secret_env = claude_secret()
     mounts = [(workdir, "/workspace"), (claude_home, "/home/worker/.claude")]
-    inner = claude_cmdline(prompt, model, get_config().claude_tools, max_turns, resume=resume)
+    if tools is None:
+        tools = get_config().claude_tools
+    inner = claude_cmdline(prompt, model, tools, max_turns, resume=resume)
     reply, _, _, wall = run_sandbox(inner, env, mounts, secret_env=secret_env)
     return reply, wall
 
@@ -141,14 +147,15 @@ def _secret_file(path, missing):
         raise RuntimeError(missing.format(path=path)) from None
 
 
-def _resume_or_rerun(job, prompt, model, max_turns, session_id):
+def _resume_or_rerun(job, prompt, model, max_turns, session_id, tools=None):
     """After a limit: continue the same session, or start over when that session cannot be found."""
+    extra = {"tools": tools} if tools is not None else {}
     if not session_id:
-        return _call_claude(job, prompt, model, max_turns)
-    reply, wall = _call_claude(job, RESUME_PROMPT, model, max_turns, resume=session_id)
+        return _call_claude(job, prompt, model, max_turns, **extra)
+    reply, wall = _call_claude(job, RESUME_PROMPT, model, max_turns, resume=session_id, **extra)
     if results.classify(reply) == results.SESSION_MISSING:
         job.event("resume_failed", reason="session not found; rerunning fresh")
-        return _call_claude(job, prompt, model, max_turns)
+        return _call_claude(job, prompt, model, max_turns, **extra)
     return reply, wall
 
 

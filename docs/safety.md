@@ -18,7 +18,7 @@ section even if you skip the rest.
 
 | Thing | Where it runs | What it can reach |
 |---|---|---|
-| The daemon (`offload serve`) | your host, as your user | your files, Docker, your token file. It is about 1,700 lines of Python you can read. |
+| The daemon (`offload serve`) | your host, as your user | your files, Docker, your token file. It is about 2,500 lines of Python you can read. |
 | Local worker (Claude Code harness → proxy → your model) | sandbox container | the job's worktree (read/write) and the proxy. Nothing on the internet. **No token.** |
 | Paid worker (Claude Code → Anthropic) | sandbox container | the job's worktree, `api.anthropic.com`, your subscription token in its environment, a per-job session folder |
 | The job's tests | sandbox container, `--network none` | the job's worktree. No network, no secrets. |

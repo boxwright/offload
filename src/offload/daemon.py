@@ -29,7 +29,14 @@ def _requeue_interrupted(jobs_root):
             print(f"[{now()}] requeued {os.path.basename(job_dir)} after restart", flush=True)
 
 
-_finished = set()      # job directories known to be done or failed; never re-read
+_finished = {}         # job dir -> mtime of its status.json when it was seen done or failed; re-read only on change
+
+
+def _status_mtime(job_dir):
+    try:
+        return os.stat(os.path.join(job_dir, "status.json")).st_mtime_ns
+    except OSError:
+        return None
 
 
 def _is_runnable(job_dir, record):
@@ -47,12 +54,14 @@ def _next_job(jobs_root):
     """The oldest inbox job, else the oldest other runnable job, else None. Returns (status, job dir)."""
     runnable = []
     for job_dir in job_dirs(jobs_root):
-        if job_dir in _finished:
+        mtime = _status_mtime(job_dir)
+        if job_dir in _finished and _finished[job_dir] == mtime:
             continue
+        _finished.pop(job_dir, None)          # a changed status file (offload retry) is read again
         record = status.job_status(job_dir)
         state = record.get("status")
         if state in (status.DONE, status.FAILED):
-            _finished.add(job_dir)
+            _finished[job_dir] = mtime
         elif _is_runnable(job_dir, record):
             runnable.append((state, job_dir))
     for state, job_dir in runnable:

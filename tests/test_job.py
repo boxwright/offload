@@ -8,6 +8,8 @@ outside tmp_path or touches the network or Docker.
 import json
 import os
 
+from offload.prompts import step_brief
+
 
 # ---------------------------------------------------------------- Job parsing
 def test_job_parses_front_matter_keys(api, job_factory):
@@ -121,3 +123,37 @@ def test_is_stuck_word_mid_sentence_is_not_stuck(api):
 def test_is_stuck_marker_on_its_own_line(api):
     """A STUCK marker on its own line, after other text, still counts."""
     assert api.is_stuck("Worked for a while.\nSTUCK — no way to install the dependency") is True
+
+
+# ---------------------------------------------------------------- note
+def test_job_note_empty_when_no_note_file(api, job_factory):
+    """A job without note.txt has an empty note."""
+    d = job_factory(name="j-109", meta={"id": "j-109", "repo": "/srv/repos/demo"})
+    assert not os.path.exists(os.path.join(d, "note.txt"))
+    assert api.Job(d).note == ""
+
+
+def test_job_note_reads_note_txt(api, job_factory):
+    """A note.txt in the job dir is read back, stripped of surrounding whitespace."""
+    d = job_factory(name="j-110", meta={"id": "j-110", "repo": "/srv/repos/demo"})
+    with open(os.path.join(d, "note.txt"), "w") as f:
+        f.write("Use the existing helper, do not add a new one.\n")
+    assert api.Job(d).note == "Use the existing helper, do not add a new one."
+
+
+def test_step_brief_without_note_omits_note_block(api, job_factory):
+    """step_brief does not mention a note when the job has none."""
+    job = api.Job(job_factory(name="j-111", meta={"id": "j-111", "repo": "/srv/repos/demo"}))
+    brief = step_brief(job, "1. write a.txt", "1. write a.txt\n")
+    assert "Owner note" not in brief
+
+
+def test_step_brief_appends_note_when_present(api, job_factory):
+    """step_brief appends the job's note to the brief when note.txt is present."""
+    d = job_factory(name="j-112", meta={"id": "j-112", "repo": "/srv/repos/demo"})
+    with open(os.path.join(d, "note.txt"), "w") as f:
+        f.write("Prefer the existing helper.\n")
+    job = api.Job(d)
+    brief = step_brief(job, "1. write a.txt", "1. write a.txt\n")
+    assert "Owner note for this run:" in brief
+    assert "Prefer the existing helper." in brief

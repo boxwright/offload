@@ -21,8 +21,9 @@ def rules_for(job):
     return RULES.format(tests=tests, test=job.test_cmd)
 
 
-def plan_prompt(job):
-    return textwrap.dedent(f"""\
+def plan_prompt(job, tree=None):
+    """The planner's brief. With `tree` (index mode) the file tree is in place of reading the repo."""
+    prompt = textwrap.dedent(f"""\
     You are the planner. Read this repository (read-only) and write a plan for the job below.
     Output ONLY a markdown list of 2-6 numbered steps, each one line, each ending with a tag in parentheses: (local-ok) for a step a capable local model can do alone, or (hard) for a step that needs strong reasoning. Then one line `Test: <command>`.
     Do not include steps for committing, pushing, opening a PR, or reviewing: the engine does those itself after the steps.
@@ -32,12 +33,30 @@ def plan_prompt(job):
     Job goal and done-when:
     {job.body.strip()}
     """)
+    if tree is not None:
+        prompt = prompt.replace(
+            "Read this repository (read-only) and write a plan for the job below.",
+            "This is the repository's file tree (read-only; do not read file contents):\n"
+            f"{tree}\nWrite a plan for the job below.")
+    return prompt
+
+
+def plan_retry_prompt(job):
+    """The narrowed re-ask after a plan attempt came back with no usable steps: only the numbered list and the Test line."""
+    return textwrap.dedent(f"""\
+    You are the planner. Your previous attempt did not produce a usable plan.
+    Output ONLY a markdown list of 2-6 numbered steps, each one line, each ending with a tag in parentheses: (local-ok) for a step a capable local model can do alone, or (hard) for a step that needs strong reasoning. Then one line `Test: <command>`.
+    Job title: {job.title}
+    Job goal and done-when:
+    {job.body.strip()}
+    """)
 
 
 def step_brief(job, step, plan_text, feedback=""):
     previous = f"\nPrevious attempt feedback:\n{feedback}\n" if feedback else ""
+    note = f"\nOwner note for this run:\n{job.note}\n" if job.note else ""
     return (f"You are the executor for one step of a job in this repository.\n"
-            f"Job: {job.title}\nPlan:\n{plan_text}\n\nYour step now: {step}\n{previous}\n{rules_for(job)}")
+            f"Job: {job.title}\nPlan:\n{plan_text}\n\nYour step now: {step}\n{previous}{note}\n{rules_for(job)}")
 
 
 def rescue_prompt(job, step, last_message, test_output):

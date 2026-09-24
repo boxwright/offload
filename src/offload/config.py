@@ -25,6 +25,7 @@ CONFIG_ENV = "OFFLOAD_CONFIG"
 
 READ_ONLY_TOOLS = "Read,Glob,Grep"
 EDIT_TOOLS = "Edit,Write"
+PLAN_READS = ("full", "index")
 SAFE_SHELL_TOOLS = ("Bash(python3 *),Bash(python *),Bash(pytest *),Bash(git diff *),Bash(git status *),"
                     "Bash(git log *),Bash(ls *),Bash(cat *)")
 LOCAL_SHELL_TOOLS = ("Bash(head *),Bash(tail *),Bash(wc *),Bash(grep *),Bash(find *),Bash(mkdir *),"
@@ -88,6 +89,8 @@ class Config:
     git_user_email: str = "offload@localhost"
     run_tests_on_host: bool = False                              # True runs the test command outside the sandbox
     host_test_path: str = ""                                     # prepended to PATH when run_tests_on_host is true
+    plan_max_turns: int = 20                                    # the planner's turn budget
+    plan_reads: str = "full"                                     # "full" reads the repo; "index" gets a file tree
     step_timeout: int = 1200
     max_test_fails: int = 3
     gate_wait_s: int = 86400
@@ -136,7 +139,23 @@ def load_config(path=None):
             f"known keys: {', '.join(sorted(defaults))}"
         )
     values = {key: _expand(value) for key, value in {**defaults, **overrides}.items()}
+    if values["plan_reads"] not in PLAN_READS:
+        raise ValueError(
+            f"plan_reads must be one of {', '.join(PLAN_READS)}, got {values['plan_reads']!r}"
+        )
     return Config(**values)
+
+
+def plan_tools(config):
+    """The tools for the planner.
+
+    `full` mode reads the repo with the paid worker's tools. `index` mode is handed a file tree
+    instead, so it drops `Read` and `Bash(cat *)` — the two tools that would read file contents.
+    """
+    tools = config.claude_tools
+    if config.plan_reads == "index":
+        tools = ",".join(t for t in tools.split(",") if t not in ("Read", "Bash(cat *)"))
+    return tools
 
 
 _config = None

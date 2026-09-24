@@ -7,7 +7,7 @@ import time
 import pytest
 from conftest import make_job_dir
 
-from offload import budget, config, daemon, engine, jobs, notify, progress, sandbox, setup_cmds, status, workers
+from offload import budget, config, daemon, engine, files, jobs, notify, progress, sandbox, setup_cmds, status, workers
 from offload.clock import iso_after
 from offload.jobs import Job
 
@@ -50,7 +50,7 @@ class Fakes:
         monkeypatch.setattr(engine, "run_tests", lambda job: (True, ""))
         monkeypatch.setattr(engine, "step_brief", lambda job, step, plan_text, feedback: step)
 
-    def claude(self, job, prompt, model, max_turns, purpose):
+    def claude(self, job, prompt, model, max_turns, purpose, tools=None):
         self.claude_purposes.append(purpose)
         return (PLAN_TEXT if purpose == "plan" else "APPROVE"), {}
 
@@ -170,6 +170,60 @@ def test_a_public_job_parks_at_the_gate_and_pushes_after_a_yes(tmp_path, origin,
     assert status.job_status(job_dir)["status"] == status.DONE
     assert fakes.claude_purposes == ["plan", "review"]
     assert len(fakes.local_purposes) == 3
+
+
+def test_a_confirm_job_parks_before_any_work_and_runs_after_a_yes(tmp_path, origin, monkeypatch):
+    fakes = Fakes(monkeypatch)
+    jobs_root = tmp_path / "jobs"
+    job_dir = make_job_dir(jobs_root, "conf", {"id": "conf", "repo": origin, "confirm": "true"})
+    daemon._run_and_report(job_dir)
+    record = status.job_status(job_dir)
+    assert record["status"] == status.WAITING_OWNER
+    assert record["gate"] == "confirm"
+    # the gate is before the worktree: nothing was cloned, planned, or worked
+    assert fakes.claude_purposes == []
+    assert fakes.local_purposes == []
+    assert not os.path.exists(os.path.join(job_dir, "work"))
+
+    (jobs_root / "conf" / "answer.txt").write_text("yes\n")
+    assert daemon._next_job(jobs_root) == (status.WAITING_OWNER, job_dir)
+    daemon._run_and_report(job_dir)
+    assert status.job_status(job_dir)["status"] == status.DONE
+    assert fakes.claude_purposes == ["plan", "review"]
+    assert len(fakes.local_purposes) == 3
+    # the approval is recorded, so a later run does not ask again
+    assert os.path.exists(os.path.join(job_dir, "confirmed"))
+
+
+def test_a_confirm_job_fails_with_exit_gate_when_declined(tmp_path, origin, monkeypatch):
+    fakes = Fakes(monkeypatch)
+    jobs_root = tmp_path / "jobs"
+    job_dir = make_job_dir(jobs_root, "conf", {"id": "conf", "repo": origin, "confirm": "true"})
+    daemon._run_and_report(job_dir)
+    assert status.job_status(job_dir)["status"] == status.WAITING_OWNER
+
+    (jobs_root / "conf" / "answer.txt").write_text("no\n")
+    daemon._run_and_report(job_dir)
+    record = status.job_status(job_dir)
+    assert record["status"] == status.FAILED
+    assert record["rc"] == engine.EXIT_GATE
+    # no work was done and no approval was recorded
+    assert fakes.claude_purposes == []
+    assert fakes.local_purposes == []
+    assert not os.path.exists(os.path.join(job_dir, "work"))
+    assert not os.path.exists(os.path.join(job_dir, "confirmed"))
+
+
+def test_a_job_without_confirm_never_reaches_a_waiting_state(tmp_path, origin, monkeypatch):
+    Fakes(monkeypatch)
+    jobs_root = tmp_path / "jobs"
+    job_dir = make_job_dir(jobs_root, "plain", {"id": "plain", "repo": origin})
+    daemon._run_and_report(job_dir)
+    # it runs straight through to done, without parking at the confirm gate or any other wait
+    assert status.job_status(job_dir)["status"] == status.DONE
+    events = list(files.read_jsonl(os.path.join(job_dir, "events.jsonl")))
+    assert not any(event["kind"] == "parked" for event in events)
+    assert status.job_status(job_dir)["status"] not in status.WAITING
 
 
 def test_claude_makes_no_call_while_the_account_is_blocked(tmp_path, job_factory, monkeypatch):

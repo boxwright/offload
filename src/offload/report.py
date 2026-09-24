@@ -68,9 +68,19 @@ def write_report(job, exit_code):
     write_text(job.path("REPORT.md"), "\n".join(lines) + "\n")
 
 
+def _plan_attempts(events):
+    """How many times the planner was asked: the highest attempt number, or one for a clean first try."""
+    return max((int(row.get("attempt") or 0) for row in events["plan_attempt"]), default=1)
+
+
 def _decision_lines(events):
     planners = [row.get("worker", "?") for row in events["claude"] if row.get("purpose") == "plan"]
-    lines = [f"- plan: {row.get('steps')} steps (planner {planners[0] if planners else '?'})" for row in events["plan"]]
+    attempts = _plan_attempts(events)
+    lines = [f"- plan: {row.get('steps')} steps (planner {planners[0] if planners else '?'}, "
+             f"{attempts} attempt{'s' if attempts > 1 else ''})" for row in events["plan"]]
+    lines += [f"- plan attempt {row.get('attempt', '?')}: {row.get('reason') or 'first attempt'}"
+              + (f", max_turns {row.get('max_turns')}" if row.get("max_turns") is not None else "")
+              for row in events["plan_attempt"]]
     lines += [f"- escalated step {row.get('step')}: {row.get('reason')}" for row in events["escalate"]]
     lines += [f"- no progress on step {row.get('step')} after {row.get('turns')} identical attempts"
               for row in events["no_progress"]]
@@ -141,6 +151,7 @@ def digest(jobs_root, hours=24, send=True):
     pace = pace_status(load_budget())
     claude_usd = sum((row.get("usd") or 0) for row in events["claude"] if not row.get("simulated"))
     server_errors = sum(1 for row in events["local"] if (row.get("errors") or 0) > 0)
+    plan_recoveries = sum(1 for row in events["plan_attempt"] if int(row.get("attempt") or 0) > 1)
     text = "\n".join([
         f"**offload digest — last {hours} h** ({now()})",
         f"jobs done: {', '.join(done) or 'none'} | failed: {', '.join(failed) or 'none'} | "
@@ -150,7 +161,7 @@ def digest(jobs_root, hours=24, send=True):
         f"even pace ${pace.pace_now:.2f} → {'on pace' if pace.allowed else 'waiting'}",
         f"local model: {len(events['local'])} sessions, {server_errors} with server errors",
         f"limits hit: {len(events['limit'])} | escalations: {len(events['escalate'])} | "
-        f"budget waits: {len(events['budget_wait'])}",
+        f"plan recoveries: {plan_recoveries} | budget waits: {len(events['budget_wait'])}",
     ])
     print(text)
     if send:
