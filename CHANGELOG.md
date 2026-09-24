@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2 — not released
+
+- Answers from Discord. With a bot token in `discord_bot_token_file`, and `discord_channel_id` and `discord_owner_id`
+  set, the daemon reads the channel every 30 seconds while a job waits for the owner, accepts a reply from the
+  owner's user id only, writes it as the job's answer, and reacts with a check mark. Start the reply with the job id
+  when more than one job is waiting. Nothing listens on the network; the daemon makes outbound requests, only while
+  a gate is open. Without the token, nothing changes.
+
 ## 0.1.1 — 2026-09-24
 
 - A job that waits for the owner, a provider limit, or the budget is parked, and the daemon runs the next

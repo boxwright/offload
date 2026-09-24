@@ -6,7 +6,7 @@ import sys
 import urllib.error
 import urllib.request
 
-from offload import config
+from offload import config, inbound
 from offload.config import get_config
 from offload.files import write_text
 from offload.sandbox import sh
@@ -124,6 +124,10 @@ def doctor():
         label = f"Discord webhook {settings.webhook_file}"
     print(f"  [{'ok' if notifier_ok else 'optional'}] {label}"
           f"{'' if notifier_ok else ' — without it, gate questions only appear in `offload status`'}")
+    if inbound.is_configured(settings):
+        print(f"  [ok] Discord inbox: channel {settings.discord_channel_id}, owner {settings.discord_owner_id}")
+    else:
+        print("  [optional] Discord inbox not configured — answers by `offload answer` on the host")
     print("\nready" if all(required) else "\nnot ready: fix the MISSING items")
     return 0 if all(required) else 1
 

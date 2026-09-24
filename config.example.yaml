@@ -13,6 +13,10 @@
 # api_key_file: ~/.config/offload/anthropic-api-key
 # optional; chmod 600
 # webhook_file: ~/.config/offload/discord-webhook
+# Answers from Discord: a bot token (Read Message History, Add Reactions, Message Content intent), the channel, and your user id.
+# discord_bot_token_file: ~/.config/offload/discord-bot-token
+# discord_channel_id: ""
+# discord_owner_id: ""
 # Where messages go. discord needs webhook_file; ntfy needs ntfy_url and, for a protected topic, ntfy_token_file.
 # notifier: discord
 # ntfy_url: ""

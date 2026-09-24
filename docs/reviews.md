@@ -62,3 +62,4 @@ the firewall and then drops every capability before the worker runs (the referen
 firewall script through sudo); the paid worker may reach `api.anthropic.com` only, the local worker nothing beyond
 its Docker network; no GitHub, npm or PyPI; no GitHub API lookup per container; the image went from 2.4 GB to 733 MB.
 Proven from inside the container and with a full job.
+- ~~**A7 owner answers from Discord**~~ Built 2026-09-24 by dogfood job `a7-discord-inbox` ($0.82, no rescue, 180 tests) as a REST poll with a bot token (`docs/design/owner-answers-from-chat.md`, option C). Unit tests against a fake server; the live proof waits for the owner's bot token and ids.

@@ -65,6 +65,10 @@ class Config:
     token_file: str = _in(config_dir, "claude-token")           # from `claude setup-token`; chmod 600
     api_key_file: str = _in(config_dir, "anthropic-api-key")    # an Anthropic API key; billed per call; chmod 600
     webhook_file: str = _in(config_dir, "discord-webhook")      # optional; chmod 600
+    # optional; enables answers from the channel; chmod 600
+    discord_bot_token_file: str = _in(config_dir, "discord-bot-token")
+    discord_channel_id: str = ""  # the channel the webhook posts to
+    discord_owner_id: str = ""  # the owner's Discord user id; replies from anyone else are ignored
     notifier: str = "discord"                                   # discord, ntfy, or none
     ntfy_url: str = ""                                          # the full topic URL, for example https://ntfy.sh/<topic>
     ntfy_token_file: str = _in(config_dir, "ntfy-token")        # optional; chmod 600

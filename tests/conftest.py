@@ -15,7 +15,9 @@ def settings(tmp_path):
         config.Config(), jobs_root=str(tmp_path / "jobs"), ledger=str(tmp_path / "ledger.jsonl"),
         budget_file=str(tmp_path / "budget.yaml"), repos_file=str(tmp_path / "repos.yaml"),
         token_file=str(tmp_path / "claude-token"), api_key_file=str(tmp_path / "anthropic-api-key"),
-        webhook_file=str(tmp_path / "discord-webhook"), ntfy_token_file=str(tmp_path / "ntfy-token"),
+        webhook_file=str(tmp_path / "discord-webhook"),
+        discord_bot_token_file=str(tmp_path / "discord-bot-token"),
+        ntfy_token_file=str(tmp_path / "ntfy-token"),
         pause_file=str(tmp_path / "PAUSE"))
     previous = config.set_config(test_config)
     yield test_config

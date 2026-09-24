@@ -2,7 +2,7 @@
 import os
 import time
 
-from offload import notifiers, status
+from offload import inbound, notifiers, status
 from offload.config import get_config
 from offload.files import read_text, remove_if_exists, write_text
 
@@ -35,8 +35,11 @@ def ask_owner(job, gate, question):
     reply_with = f'offload answer {job.dir} "<text>"'
     write_text(job.path("question.md"), f"# Gate: {gate}\n\n{question}\n\nAnswer with: {reply_with}\n")
     job.event("gate", gate=gate, question=question[:200])
-    notify(job, f"**[{job.id}] gate: {gate}**\n{question}\n"
-                f"Reply on the engine host: `offload answer {job.dir} \"yes\"` (or no, or your own text)")
+    if inbound.is_configured(get_config()):
+        reply = "Reply here with yes or no. Start with the job id when more than one job is waiting."
+    else:
+        reply = f"Reply on the engine host: `offload answer {job.dir} \"yes\"` (or no, or your own text)"
+    notify(job, f"**[{job.id}] gate: {gate}**\n{question}\n{reply}")
     raise status.Parked(status.WAITING_OWNER, gate=gate, deadline=time.time() + get_config().gate_wait_s)
 
 
