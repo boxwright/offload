@@ -91,7 +91,12 @@ container, because the host Python has no pytest. This is the baseline for any s
 | t4 refactor report | yes | 24.6 s | 9 | 1,079 |
 | t5 LRU | yes | 45.5 s | 12 | 3,232 |
 
-**5/5. 274 s total.** Same tasks, same sandbox, same proxy as the Qwen3.8-27B baseline of 2026-09-23 (75.5 s).
+**Run 1: 5/5, 274 s.** Same tasks, same sandbox, same proxy as the Qwen3.8-27B baseline of 2026-09-23 (75.5 s).
+
+**Run 2, same day, nothing else on the box: 3/5, 610 s** (`results-run-2.jsonl`): t1 14.2 s (5 turns), t2 **failed** at
+the 40-turn cap (286.7 s, 1 test still failing), t3 44.3 s (15), t4 33.6 s (11), t5 **failed** (231.0 s, 29 turns,
+1 test still failing). The server samples at temperature 0.6, so runs differ; over the ten task runs this model
+scored 8 of 10 where the dense 27B scored 10 of 10 over its two runs through the harness.
 The coder MoE decodes 3 to 4 times faster (301 tok/s against 67 to 92) and still takes longer, because it takes
 more turns and writes more (the daterange fix took 22 turns and 6,051 output tokens against 9 turns and 980).
 Raw lines: `../docs/evidence/window-2/results-qwen3-coder-30b-a3b-q4.jsonl`.

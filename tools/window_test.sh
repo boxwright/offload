@@ -42,7 +42,7 @@ case "${1:-}" in
     mkdir -p "$W/jobs"
     sed -e 's/^docker_network:.*//' -e 's/^proxy_url:.*//' -e 's/^jobs_root:.*//' ~/.config/offload/config.yaml > "$W/config.yaml"
     printf 'docker_network: offload_net\nproxy_url: http://offload-proxy:4000\njobs_root: %s/jobs\n' "$W" >> "$W/config.yaml"
-    n=1; while [ -e "$W/jobs/window-$(printf %03d $n)" ]; do n=$((n+1)); done; id="window-$(printf %03d $n)"
+    id="window-$(date +%m%d-%H%M)"     # unique per run, so the pushed branch name never collides with an earlier run's
     mkdir -p "$W/jobs/$id"; sed "s/demo-006/$id/g" ~/.local/share/offload/jobs/demo-006/job.md > "$W/jobs/$id/job.md"
     OFFLOAD_CONFIG="$W/config.yaml" offload run "$W/jobs/$id"; echo "exit=$?"
     OFFLOAD_CONFIG="$W/config.yaml" offload report "$W/jobs/$id" 2>/dev/null | head -12 ;;

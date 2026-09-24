@@ -121,3 +121,112 @@ offload-proxy
 ready
 unpaused
 [2026-09-24 08:55:48] restored: llama {"status":"ok"}; log at /home/snjdb/.local/share/offload/window/window-2.log
+
+===== [2026-09-24 12:57:21] window 2 start: model OFFLOAD_MODEL_FILE=Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
+[2026-09-24 12:57:21] started: stopping llama and offload-proxy for about 25 minutes
+paused
+llama
+offload-proxy
+
+===== [2026-09-24 12:57:23] up (context 65536)
+ Container offload-model  Healthy
+ Container offload-proxy  Starting
+ Container offload-proxy  Started
+{"status":"ok"}  model ready after 16 s
+20792 MiB, 32607 MiB
+
+===== [2026-09-24 12:57:39] measure
+--- stack.env:
+OFFLOAD_HOME=/home/snjdb/.local/share/offload/window
+OFFLOAD_MODEL_FILE=Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
+OFFLOAD_CONTEXT=65536
+OFFLOAD_MODEL_PORT=8081
+OFFLOAD_SPEC_ARGS=
+--- GPU memory:
+20792 MiB, 32607 MiB
+--- decode speed (prose, 400 tokens):
+{'prompt_per_second': 152.4, 'predicted_per_second': 300.7, 'predicted_n': 328} draft: {}
+--- decode speed (code, 400 tokens):
+{'prompt_per_second': 1955.2, 'predicted_per_second': 302.2, 'predicted_n': 300} draft: {}
+--- a tool task through sandbox -> proxy -> model:
+
+Claude configuration file not found at: /home/worker/.claude/.claude.json
+A backup file exists at: /home/worker/.claude/backups/.claude.json.backup.1790160035864
+You can manually restore it by running: cp "/home/worker/.claude/backups/.claude.json.backup.1790160035864" "/home/worker/.claude/.claude.json"
+
+
+Claude configuration file not found at: /home/worker/.claude/.claude.json
+A backup file exists at: /home/worker/.claude/backups/.claude.json.backup.1790160035864
+You can manually restore it by running: cp "/home/worker/.claude/backups/.claude.json.backup.1790160035864" "/home/worker/.claude/.claude.json"
+
+[claude-code:unrecognized_model] {"model":"local-model","query_source":"sdk"}
+{'is_error': False, 'num_turns': 3, 'duration_ms': 6346} | hello from the default install
+  wall 6.7 s
+hello from the default install
+===== [2026-09-24 12:57:48] calibrate
+t1_slugify done rc=0 wall=14.2s
+t2_daterange_bug done rc=1 wall=286.7s
+t3_wordfreq_cli done rc=0 wall=44.3s
+t4_refactor_report done rc=0 wall=33.6s
+t5_lru done rc=0 wall=231.0s
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t1_slugify", "pass": true, "pytest": "6 passed in 0.00s", "tests_tampered": [], "wall_s": 14.2, "exit": 0, "num_turns": 5, "is_error": false, "terminal_reason": "completed", "output_tokens": 795, "result_head": "Perfect! All the test cases are working as expected. Let me summarize what our implementation does:\n"}
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t2_daterange_bug", "pass": false, "pytest": "1 failed, 4 passed in 0.01s", "tests_tampered": [], "wall_s": 286.7, "exit": 1, "num_turns": 41, "is_error": true, "terminal_reason": "max_turns", "output_tokens": 16235, "result_head": "None"}
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t3_wordfreq_cli", "pass": true, "pytest": "4 passed in 0.04s", "tests_tampered": [], "wall_s": 44.3, "exit": 0, "num_turns": 15, "is_error": false, "terminal_reason": "completed", "output_tokens": 2266, "result_head": "I've successfully implemented the `wordfreq.py` command-line tool according to the requirements. Her"}
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t4_refactor_report", "pass": true, "pytest": "4 passed in 0.00s", "tests_tampered": [], "wall_s": 33.6, "exit": 0, "num_turns": 11, "is_error": false, "terminal_reason": "completed", "output_tokens": 1731, "result_head": "I've successfully refactored the code to eliminate the duplication in the three `render_*` functions"}
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t5_lru", "pass": false, "pytest": "1 failed, 2 passed in 0.01s", "tests_tampered": [], "wall_s": 231.0, "exit": 0, "num_turns": 29, "is_error": false, "terminal_reason": "completed", "output_tokens": 17914, "result_head": "I've successfully implemented the LRU (Least Recently Used) cache class according to all requirement"}
+
+===== [2026-09-24 13:07:58] job
+[2026-09-24 13:07:58] start repo='/home/snjdb/.local/share/offload/demo-calc.git' branch='offload/window-001'
+[2026-09-24 13:07:58] worktree path='/home/snjdb/.local/share/offload/window/jobs/window-001/work' base='7a6077daf1'
+[2026-09-24 13:07:58] plan_attempt attempt='1' reason='first attempt' max_turns='20'
+[2026-09-24 13:08:09] claude worker='claude/opus' purpose='plan' wall_s='10.6' is_error='False' terminal_reason='completed' turns='5' usd='0.11810949999999999' cache_read='47949' output_tokens='709' session='679a1b12-ff2a-4298-a20c-800c9d7b4eac' simulated='False'
+[2026-09-24 13:08:09] plan steps='2'
+[2026-09-24 13:08:30] local worker='local/harness' purpose='step 1' wall_s='21.2' exit='0' turns='7' is_error='False' terminal_reason='completed' session='c05bf8ed-eb49-4aac-acb1-fe629433566c' errors='0'
+[2026-09-24 13:08:30] tests passed='True' summary='6 passed in 0.00s' wall_s='0.2'
+[2026-09-24 13:08:41] local worker='local/harness' purpose='step 2' wall_s='11.0' exit='0' turns='4' is_error='False' terminal_reason='completed' session='a5d73c7a-c781-49af-95b9-21757bf9c5cf' errors='0'
+[2026-09-24 13:08:42] tests passed='True' summary='6 passed in 0.00s' wall_s='0.2'
+[2026-09-24 13:08:47] claude worker='claude/sonnet' purpose='review' wall_s='5.7' is_error='False' terminal_reason='completed' turns='2' usd='0.0521352' cache_read='49696' output_tokens='178' session='bc628341-f6be-4025-b833-12512d4f193d' simulated='False'
+[2026-09-24 13:08:47] review approved='True' notes='APPROVE\n\nAll 6 tests pass; fix is minimal and correct (mean '
+[2026-09-24 13:08:47] push ok='False' branch='offload/window-001' err='behind\nhint: its remote counterpart. If you want to integrat'
+[2026-09-24 13:08:47] fail reason='git push failed:  behind\nhint: its remote counterpart. If yo'
+[2026-09-24 13:08:47] notify ok='True' http='204'
+exit=7
+# Report — window-001: Fix the failing statistics tests in the demo repository
+
+**Outcome:** failed (git push failed:  behind
+hint: its remote counterpart. If you want to integrate the remote changes,
+hint: use 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.)  
+**Branch:** `offload/window-001` on `/home/snjdb/.local/share/offload/demo-calc.git`  
+**Change:**  1 file changed, 13 insertions(+), 1 deletion(-)  
+**Cost (list-equivalent):** $0.32 opus $0.21, sonnet $0.10  
+**Time:** local worker 32 s over 2 sessions; Claude 16 s over 2 calls  
+
+## Decisions the engine made
+
+===== [2026-09-24 13:08:47] context 131072: VRAM only
+ Network offload_net  Removing
+ Network offload_net  Removed
+18 MiB
+ Container offload-model  Healthy
+ Container offload-proxy  Starting
+ Container offload-proxy  Started
+{"status":"ok"}  model ready after 6 s
+24248 MiB, 32607 MiB
+24248 MiB, 32607 MiB
+
+===== [2026-09-24 13:08:55] done in 694 s; restoring
+
+===== [2026-09-24 13:08:55] restore: stack down, the box's server and proxy back, daemon unpaused
+ Network offload_net  Removing
+ Network offload_net  Removed
+18 MiB
+llama
+offload-proxy
+{"status":"ok"} llama healthy after 15 s
+29170 MiB, 32607 MiB
+  [ok] Discord webhook /home/snjdb/.engine/discord-webhook
+
+ready
+unpaused
+[2026-09-24 13:09:10] restored: llama {"status":"ok"}; log at /home/snjdb/.local/share/offload/window/window-2.log
