@@ -92,6 +92,15 @@ Those last two jobs were Offload working on its own source code.
 
 Every model runs in a container, unprivileged, behind an outbound firewall it cannot change, and the worker does not start if the firewall does not. The paid worker can reach `api.anthropic.com` and nothing else. The local model's container never holds your Claude login and cannot reach the internet at all. Your project's tests run with no network at all, because tests are code the model just wrote. Workers get an allowlist of tools with no push, sudo, ssh, docker, curl or pip on it. Money, publishing and deletion stop and ask you. The full model, including what it does not protect against: [docs/safety.md](docs/safety.md). Questions people ask, including the one about Claude's terms: [docs/faq.md](docs/faq.md).
 
+## Help wanted: your hardware
+
+Everything measured here comes from one machine. The rest of `docs/hardware.md` is estimates, marked as such.
+If you have a Linux box with an NVIDIA card of 24 GB or more, the read-only preflight above takes a minute,
+and its output in a [hardware report](https://github.com/boxwright/offload/issues/new?template=hardware-report.md)
+turns an estimate into a measurement. The two things nobody has measured: any 24 GB card, and the 20 GB model
+download on a machine that did not have the file. A pull request that adds a row to `docs/hardware.md` (card,
+driver, model and quant, context, VRAM after load, tok/s, date, what did not work) is the best kind.
+
 ## License
 
 Apache-2.0. The model it downloads, Qwen3.8-27B (Unsloth GGUF build), is also Apache-2.0.
