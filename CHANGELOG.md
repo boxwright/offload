@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.1 — not released
+## 0.1.1 — 2026-09-24
 
 - A job that waits for the owner, a provider limit, or the budget is parked, and the daemon runs the next
   job. Before, one open gate held the queue for up to a day.

@@ -3,4 +3,4 @@
 The engine daemon lives in the `offload` package: `offload.config` holds every
 machine-specific constant, and `offload.cli` is the `offload` console script.
 """
-__version__ = "0.1.0"
+__version__ = "0.1.1"

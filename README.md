@@ -6,7 +6,7 @@ Offload is a small daemon for people who own a GPU box and pay for Claude. You g
 
 On our own jobs, Claude's share of the work was **36 seconds out of 13 minutes**.
 
-> Status: 0.1.0, the first public release. Measured on one machine so far. Hardware reports are the most useful thing you can send.
+> Status: 0.1.1. Measured on one machine (RTX 5090) with two models. Hardware reports are the most useful thing you can send.
 
 ## Is this for you?
 

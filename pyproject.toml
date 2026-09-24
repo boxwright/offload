@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "boxwright-offload"
-version = "0.1.0"
+version = "0.1.1"
 description = "Offload: make your Claude subscription last longer by doing the typing on a local model."
 readme = "README.md"
 requires-python = ">=3.10"
