@@ -80,3 +80,18 @@ Raw lines: `results-qwen-harness-2026-09-17.jsonl`.
 the firewall, `dontAsk` with the job tool list, the LiteLLM proxy, the container caps). Scored inside a no-network
 container, because the host Python has no pytest. This is the baseline for any second model. Raw lines:
 `results-qwen3.8-harness-sandbox-2026-09-23.jsonl`.
+
+## 2026-09-24 — Qwen3-Coder-30B-A3B-Instruct (UD-Q4_K_XL) through the shipped path, in a maintenance window
+
+| Task | Pass | Wall | Turns | Output tokens |
+|---|---|---|---|---|
+| t1 slugify | yes | 27.9 s | 10 | 1,444 |
+| t2 daterange bug | yes | 128.1 s | 22 | 6,051 |
+| t3 wordfreq CLI | yes | 47.8 s | 17 | 2,137 |
+| t4 refactor report | yes | 24.6 s | 9 | 1,079 |
+| t5 LRU | yes | 45.5 s | 12 | 3,232 |
+
+**5/5. 274 s total.** Same tasks, same sandbox, same proxy as the Qwen3.8-27B baseline of 2026-09-23 (75.5 s).
+The coder MoE decodes 3 to 4 times faster (301 tok/s against 67 to 92) and still takes longer, because it takes
+more turns and writes more (the daterange fix took 22 turns and 6,051 output tokens against 9 turns and 980).
+Raw lines: `../docs/evidence/window-2/results-qwen3-coder-30b-a3b-q4.jsonl`.

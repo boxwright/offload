@@ -41,14 +41,18 @@ def _cmd_serve(args):
 
 def _cmd_run(args):
     from offload.engine import EXIT_PARKED, run
+    from offload.jobs import Job
+    from offload.report import write_report
     from offload.status import Parked, set_status
     job_dir = _job_dir(args.job_dir)
     try:
-        return run(job_dir)
+        code = run(job_dir)
     except Parked as parked:
         set_status(job_dir, parked.status, **parked.wake)
         print(f"parked: {parked.status} {parked.wake}. Run the job again when the wait is over.")
         return EXIT_PARKED
+    write_report(Job(job_dir), code)          # the daemon writes one after every job; so does a foreground run
+    return code
 
 
 def _cmd_add(args):

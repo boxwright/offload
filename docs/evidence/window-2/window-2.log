@@ -1,0 +1,123 @@
+
+===== [2026-09-23 23:00:56] window 2 start: model OFFLOAD_MODEL_FILE=Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
+[2026-09-23 23:00:56] started: stopping llama and offload-proxy for about 25 minutes
+paused
+llama
+offload-proxy
+
+===== [2026-09-23 23:00:57] up (context 65536)
+ Container offload-proxy  Creating
+ Container offload-proxy  Error response from daemon: Conflict. The container name "/offload-proxy" is already in use by container "38d357d4b8eaf6df4cb7a99f21f6b2f961a6d498f5836b1133d8a96f5b3908ab". You have to remove (or rename) that container to be able to reuse that name.
+Error response from daemon: Conflict. The container name "/offload-proxy" is already in use by container "38d357d4b8eaf6df4cb7a99f21f6b2f961a6d498f5836b1133d8a96f5b3908ab". You have to remove (or rename) that container to be able to reuse that name.
+MODEL DID NOT COME UP
+UP FAILED
+
+===== [2026-09-23 23:04:58] restore: stack down, the box's server and proxy back, daemon unpaused
+ Network offload_net  Removing
+ Network offload_net  Removed
+18 MiB
+llama
+offload-proxy
+{"status":"ok"} llama healthy after 252 s
+29170 MiB, 32607 MiB
+  [ok] Discord webhook /home/snjdb/.engine/discord-webhook
+
+ready
+unpaused
+[2026-09-23 23:05:09] restored: llama {"status":"ok"}; log at /home/snjdb/.local/share/offload/window/window-2.log
+
+===== [2026-09-24 08:49:19] window 2 start: model OFFLOAD_MODEL_FILE=Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
+[2026-09-24 08:49:19] started: stopping llama and offload-proxy for about 25 minutes
+paused
+llama
+offload-proxy
+
+===== [2026-09-24 08:49:29] up (context 65536)
+ Container offload-model  Healthy
+ Container offload-proxy  Starting
+ Container offload-proxy  Started
+{"status":"ok"}  model ready after 11 s
+20792 MiB, 32607 MiB
+
+===== [2026-09-24 08:49:40] measure
+--- stack.env:
+OFFLOAD_HOME=/home/snjdb/.local/share/offload/window
+OFFLOAD_MODEL_FILE=Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf
+OFFLOAD_CONTEXT=65536
+OFFLOAD_MODEL_PORT=8081
+OFFLOAD_SPEC_ARGS=
+--- GPU memory:
+20792 MiB, 32607 MiB
+--- decode speed (prose, 400 tokens):
+{'prompt_per_second': 163.7, 'predicted_per_second': 299.3, 'predicted_n': 328} draft: {}
+--- decode speed (code, 400 tokens):
+{'prompt_per_second': 1939.7, 'predicted_per_second': 301.2, 'predicted_n': 300} draft: {}
+--- a tool task through sandbox -> proxy -> model:
+
+Claude configuration file not found at: /home/worker/.claude/.claude.json
+A backup file exists at: /home/worker/.claude/backups/.claude.json.backup.1790160035864
+You can manually restore it by running: cp "/home/worker/.claude/backups/.claude.json.backup.1790160035864" "/home/worker/.claude/.claude.json"
+
+
+Claude configuration file not found at: /home/worker/.claude/.claude.json
+A backup file exists at: /home/worker/.claude/backups/.claude.json.backup.1790160035864
+You can manually restore it by running: cp "/home/worker/.claude/backups/.claude.json.backup.1790160035864" "/home/worker/.claude/.claude.json"
+
+[claude-code:unrecognized_model] {"model":"local-model","query_source":"sdk"}
+{'is_error': False, 'num_turns': 3, 'duration_ms': 6364} | hello from the default install
+  wall 6.8 s
+hello from the default install
+===== [2026-09-24 08:49:50] calibrate
+t1_slugify done rc=0 wall=27.9s
+t2_daterange_bug done rc=0 wall=128.1s
+t3_wordfreq_cli done rc=0 wall=47.8s
+t4_refactor_report done rc=0 wall=24.6s
+t5_lru done rc=0 wall=45.5s
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t1_slugify", "pass": true, "pytest": "6 passed in 0.00s", "tests_tampered": [], "wall_s": 27.9, "exit": 0, "num_turns": 10, "is_error": false, "terminal_reason": "completed", "output_tokens": 1444, "result_head": "I've successfully implemented the `slugify` function in `slug.py` according to all the specified req"}
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t2_daterange_bug", "pass": true, "pytest": "6 passed in 0.00s", "tests_tampered": [], "wall_s": 128.1, "exit": 0, "num_turns": 22, "is_error": false, "terminal_reason": "completed", "output_tokens": 6051, "result_head": "I have successfully fixed all the bugs in `daterange.py` so that all tests in `test_daterange.py` pa"}
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t3_wordfreq_cli", "pass": true, "pytest": "4 passed in 0.04s", "tests_tampered": [], "wall_s": 47.8, "exit": 0, "num_turns": 17, "is_error": false, "terminal_reason": "completed", "output_tokens": 2137, "result_head": "I've successfully implemented the `wordfreq.py` command-line tool according to all specifications. T"}
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t4_refactor_report", "pass": true, "pytest": "4 passed in 0.00s", "tests_tampered": [], "wall_s": 24.6, "exit": 0, "num_turns": 9, "is_error": false, "terminal_reason": "completed", "output_tokens": 1079, "result_head": "I've successfully refactored the code to eliminate the duplication in the `render_*` functions while"}
+{"worker": "qwen3-coder-30b-a3b-q4", "task": "t5_lru", "pass": true, "pytest": "5 passed in 0.00s", "tests_tampered": [], "wall_s": 45.5, "exit": 0, "num_turns": 12, "is_error": false, "terminal_reason": "completed", "output_tokens": 3232, "result_head": "I've successfully implemented the LRU (Least Recently Used) cache class according to all the specifi"}
+
+===== [2026-09-24 08:54:24] job
+[2026-09-24 08:54:24] start repo='/home/snjdb/.local/share/offload/demo-calc.git' branch='offload/window-001'
+[2026-09-24 08:54:24] worktree path='/home/snjdb/.local/share/offload/window/jobs/window-001/work' base='7a6077daf1'
+[2026-09-24 08:54:36] claude worker='claude/opus' purpose='plan' wall_s='11.0' is_error='False' terminal_reason='completed' turns='5' usd='0.09660450000000001' cache_read='50439' output_tokens='795' session='aa6b2f69-6c5b-442c-8683-a963631e70bc' files='2' file_bytes='824' simulated='False'
+[2026-09-24 08:54:36] plan steps='2'
+[2026-09-24 08:54:49] local worker='local/harness' purpose='step 1' wall_s='13.6' exit='0' turns='5' is_error='False' terminal_reason='completed' session='b4e4f3b7-4269-4443-b855-96682c07d719' errors='0'
+[2026-09-24 08:54:49] tests passed='True' summary='6 passed in 0.00s' wall_s='0.2'
+[2026-09-24 08:55:10] local worker='local/harness' purpose='step 2' wall_s='20.2' exit='0' turns='8' is_error='False' terminal_reason='completed' session='ae07b521-729f-4f53-9b3e-983620f3e7e5' errors='0'
+[2026-09-24 08:55:10] tests passed='True' summary='6 passed in 0.00s' wall_s='0.2'
+[2026-09-24 08:55:19] claude worker='claude/sonnet' purpose='review' wall_s='8.8' is_error='False' terminal_reason='completed' turns='2' usd='0.05262' cache_read='49690' output_tokens='261' session='fa130b5e-7ede-4e86-9511-7772f4a99940' files='0' file_bytes='0' simulated='False'
+[2026-09-24 08:55:19] review approved='True' notes='APPROVE\nFix correctly changes `len(xs) - 1` to `len(xs)` in '
+[2026-09-24 08:55:19] push ok='True' branch='offload/window-001' err=''
+[2026-09-24 08:55:19] done 
+[2026-09-24 08:55:19] notify ok='True' http='204'
+exit=0
+
+===== [2026-09-24 08:55:19] context 131072: VRAM only
+ Network offload_net  Removing
+ Network offload_net  Removed
+18 MiB
+ Container offload-model  Healthy
+ Container offload-proxy  Starting
+ Container offload-proxy  Started
+{"status":"ok"}  model ready after 6 s
+24248 MiB, 32607 MiB
+24248 MiB, 32607 MiB
+
+===== [2026-09-24 08:55:27] done in 368 s; restoring
+
+===== [2026-09-24 08:55:27] restore: stack down, the box's server and proxy back, daemon unpaused
+ Network offload_net  Removing
+ Network offload_net  Removed
+18 MiB
+llama
+offload-proxy
+{"status":"ok"} llama healthy after 20 s
+29170 MiB, 32607 MiB
+  [ok] Discord webhook /home/snjdb/.engine/discord-webhook
+
+ready
+unpaused
+[2026-09-24 08:55:48] restored: llama {"status":"ok"}; log at /home/snjdb/.local/share/offload/window/window-2.log

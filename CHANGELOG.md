@@ -10,6 +10,8 @@
 - At start the daemon kills worker containers that a stopped daemon left running. Worker containers carry
   the label `offload.role=worker`.
 - `offload run` exits with code 10 when the job parks.
+- A second model measured on the default install: Qwen3-Coder-30B-A3B-Instruct (UD-Q4_K_XL, 17.7 GB). 299 tok/s,
+  20.8 GB of VRAM at 65k context, calibration 5/5, one real job. Numbers and the 24 GB estimate in `docs/hardware.md`.
 - `offload add --spec FILE [--confirm]`: a job.md-style spec goes straight to `ready`, skipping intake. `--confirm`
   parks the job until the owner answers yes. A one-line job now posts its drafted spec to the owner.
 - The planner has `plan_max_turns` (default 20; the old fixed 8 ran out on a 2,500-line repository) and a recovery

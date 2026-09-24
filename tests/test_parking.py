@@ -336,3 +336,11 @@ def test_a_missing_credential_names_the_file(settings):
     with pytest.raises(RuntimeError) as err:
         workers.claude_secret()
     assert settings.token_file in str(err.value)
+
+
+def test_a_foreground_run_writes_the_report_too(tmp_path, origin, monkeypatch):
+    from offload import cli
+    Fakes(monkeypatch)
+    job_dir = make_job_dir(tmp_path / "jobs", "fg", {"id": "fg", "repo": origin})
+    assert cli.main(["run", job_dir]) == engine.EXIT_OK
+    assert "**Outcome:** done" in files.read_text(os.path.join(job_dir, "REPORT.md"))
