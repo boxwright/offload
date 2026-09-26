@@ -34,3 +34,8 @@ box; review it there. A clone on another machine sees the branch after `git fetc
 
 A job that waits for you (`waiting_owner`) shows the question in `offload status` and in your Discord or ntfy
 channel. `offload answer <job> yes`. A rate limit or the weekly budget parks the job and the next one runs.
+
+## Deploying Offload itself
+
+The box runs `main` of its own repository. `offload-deploy` on the box fetches it, installs, restarts and runs doctor.
+No other path changes the installed package. See `docs/design/one-deployer.md`.

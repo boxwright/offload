@@ -113,6 +113,16 @@ git merge --no-ff FETCH_HEAD
 Reject a branch that does more than the spec asked. Two branches were rejected on this project for
 deleting more than they were told to; the report said so, and reading the diff caught it.
 
+## Working on Offload's own code
+
+The box runs `main` of its own bare repository and nothing else. Never rsync a tree to it or install by hand.
+Queue the change as a job on Offload's repository, review the branch, merge it into `main`, then:
+
+```bash
+git push <box remote> main        # fast-forward only
+ssh <box> offload-deploy          # fetch main, install, restart, doctor
+```
+
 ## What Offload is not for
 
 Open-ended design work, anything that needs the owner's judgement mid-way, changes across several
