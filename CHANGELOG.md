@@ -9,6 +9,13 @@
   a gate is open. Without the token, nothing changes. Proven live 2026-09-26: question posted 08:21:31, the owner's
   `Yes` read from the channel 08:23:32, check mark added, job done 08:25:11 (`evidence/j20260926-082131`).
 
+- Readable job ids: a job from a spec is `j<date>-<title-slug>` (`j20260926-fix-the-failing-statistics-tests`), so the
+  Discord question and `offload status` say what the job is. A one-liner keeps the timestamp id until intake names it.
+  Every command that takes a job accepts a unique prefix of its id. The status table's id column is wider.
+- `checks:` in a job's front matter: a list of shell commands the engine runs after the push and requires to pass; a
+  failing check fails the job with the branch already out, and the report lists each check with its output.
+- A job whose `job.md` cannot be parsed is failed and skipped instead of stopping the loop.
+
 ## 0.1.1 — 2026-09-24
 
 - A job that waits for the owner, a provider limit, or the budget is parked, and the daemon runs the next

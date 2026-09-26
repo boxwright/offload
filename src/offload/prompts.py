@@ -85,5 +85,5 @@ def intake_prompt(request, repos):
     You are the intake planner for an unattended engineering engine. Turn this one-line request into a job file.
     Request: {request}
     Known repositories (path → purpose): {json.dumps(repos)}
-    Reply with ONLY a YAML block with keys: title (one line), repo (one of the known repository paths, or the word UNKNOWN), test (shell command to run the tests, or "none"), goal (2-4 sentences), done_when (2-4 checkable bullets, one per line, joined with ' | '), gates (list from money, publish, delete that this job could need).
+    Reply with ONLY a YAML block with keys: title (one line), repo (one of the known repository paths, or the word UNKNOWN), test (shell command to run the tests, or "none"), goal (2-4 sentences), done_when (2-4 checkable bullets, one per line, joined with ' | '), gates (list from money, publish, delete that this job could need), checks (optional: list of shell commands run once after the push to verify the spec, e.g. ["make lint"]; a non-zero exit fails the job).
     """)

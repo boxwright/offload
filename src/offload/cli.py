@@ -12,10 +12,24 @@ def _jobs_root(args):
     return getattr(args, "jobs", None) or get_config().jobs_root
 
 
+class _JobResolutionError(Exception):
+    """A job argument that names no job, or more than one. `main` prints it; nobody sees a traceback."""
+
+
 def _job_dir(name):
-    """A job given by id is looked up under the jobs root; a path is used as it is."""
+    """A job given by id, or by a prefix that fits exactly one job, is found under the jobs root; a path is
+    used as it is."""
     from offload.config import get_config
-    return name if os.path.isdir(name) else os.path.join(get_config().jobs_root, name)
+    from offload.jobs import resolve_job_id
+    if os.path.isdir(name):
+        return name
+    jobs_root = get_config().jobs_root
+    try:
+        return os.path.join(jobs_root, resolve_job_id(jobs_root, name))
+    except KeyError:
+        raise _JobResolutionError(f"no job id starts with {name!r}") from None
+    except ValueError as error:
+        raise _JobResolutionError(str(error)) from None
 
 
 def _cmd_init(args):
@@ -209,4 +223,8 @@ def main(argv=None):
     if not getattr(args, "func", None):
         parser.print_help()
         return 2
-    return args.func(args)
+    try:
+        return args.func(args)
+    except _JobResolutionError as error:
+        print(f"offload: {error}", file=sys.stderr)
+        return 2

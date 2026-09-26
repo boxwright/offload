@@ -74,6 +74,27 @@ def _park(job_dir, parked):
     status.set_status(job_dir, parked.status, **parked.wake)
 
 
+def _job_or_fail(job_dir):
+    """The job, or None after marking it failed because its job.md cannot be parsed.
+
+    A job whose job.md is unparseable can never run; fail it and move on instead of taking the loop down.
+    """
+    try:
+        return jobs.Job(job_dir)
+    except Exception as exc:     # one bad job must never take the loop down
+        print(f"[{now()}] {os.path.basename(job_dir)}: job.md is unparseable: {exc}", flush=True)
+        status.set_status(job_dir, status.FAILED, reason=f"job.md: {str(exc)[:160]}", finished=now())
+        return None
+
+
+def _fail_event(job_dir, reason):
+    """Record a `fail` event, tolerating a job.md that cannot even be parsed (the status still fails the job)."""
+    try:
+        jobs.Job(job_dir).event("fail", reason=reason)
+    except Exception as exc:
+        print(f"[{now()}] could not record fail event for {os.path.basename(job_dir)}: {exc}", flush=True)
+
+
 def _run_and_report(job_dir):
     started = status.job_status(job_dir).get("started") or now()
     status.set_status(job_dir, status.RUNNING, started=started)
@@ -83,7 +104,7 @@ def _run_and_report(job_dir):
         _park(job_dir, parked)
         return
     except Exception as exc:     # one bad job must never take the loop down
-        jobs.Job(job_dir).event("fail", reason=f"exception: {str(exc)[:200]}")
+        _fail_event(job_dir, f"exception: {str(exc)[:200]}")
         exit_code = EXIT_EXCEPTION
     status.set_status(job_dir, status.DONE if exit_code == EXIT_OK else status.FAILED,
                       rc=exit_code, finished=now())
@@ -220,9 +241,13 @@ def serve(jobs_root, interval=20):
             time.sleep(interval)
             continue
         state, job_dir = picked
+        job = _job_or_fail(job_dir)
+        if job is None:
+            _finished.add(job_dir)
+            continue
         if state in status.WAITING:
-            jobs.Job(job_dir).event("woken", was=state)
-        if jobs.Job(job_dir).repo:
+            job.event("woken", was=state)
+        if job.repo:
             _run_and_report(job_dir)
         else:
             _intake(job_dir)

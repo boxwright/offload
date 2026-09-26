@@ -63,6 +63,7 @@ def write_report(job, exit_code):
         "", "## Steps",
         *[f"- {row.get('purpose')}: {row.get('worker')} {row.get('wall_s')} s, {row.get('turns')} turns"
           for row in rows if row.get("kind") in ("local", "claude")],
+        *_check_lines(events["check"]),
         "", f"Plan: `plan.md` · Events: `events.jsonl` · Generated {now()}",
     ]
     write_text(job.path("REPORT.md"), "\n".join(lines) + "\n")
@@ -71,6 +72,28 @@ def write_report(job, exit_code):
 def _plan_attempts(events):
     """How many times the planner was asked: the highest attempt number, or one for a clean first try."""
     return max((int(row.get("attempt") or 0) for row in events["plan_attempt"]), default=1)
+
+
+def _check_lines(checks):
+    """The `## Checks` section: one line per spec check, with the captured output under each failure.
+
+    Returns [] when the job ran no checks, so the section is omitted entirely.
+    """
+    if not checks:
+        return []
+    lines = ["", "## Checks"]
+    for row in checks:
+        command = row.get("command", "")
+        if row.get("exit") == 0:
+            lines.append(f"- pass: `{command}`")
+            continue
+        lines.append(f"- fail: `{command}`")
+        output = str(row.get("output", "")).strip()
+        if output:
+            lines.append("  ```")
+            lines += [f"  {line}" for line in output.splitlines()]
+            lines.append("  ```")
+    return lines
 
 
 def _decision_lines(events):
@@ -113,7 +136,7 @@ def _title(job_dir):
         match = _TITLE_RE.search(read_text(os.path.join(job_dir, "job.md")))
     except FileNotFoundError:
         return ""
-    return match.group(1)[:50] if match else ""
+    return match.group(1)[:60] if match else ""
 
 
 def status_table(jobs_root):
@@ -123,7 +146,7 @@ def status_table(jobs_root):
         job_id = os.path.basename(job_dir)
         state = status.job_status(job_dir).get("status", "?")
         total = costs.get(job_id, (0.0, {}))[0]
-        rows.append(f"{job_id:<18} {state:<14} ${total:>6.2f}  {_last_event(job_dir):<22} {_title(job_dir)}")
+        rows.append(f"{job_id:<34} {state:<14} ${total:>6.2f}  {_last_event(job_dir):<22} {_title(job_dir)}")
     print("\n".join(rows) if rows else "no jobs")
 
 

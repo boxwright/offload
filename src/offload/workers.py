@@ -24,19 +24,28 @@ _SERVER_ERROR_RE = re.compile(r"\b503\b|Loading model|Connection error|overloade
 _simulated_jobs = set()
 
 
+def run_command(job, command):
+    """Run one shell command in the job's worktree. Returns (exit code, stdout, stderr, wall seconds).
+
+    On the host when `run_tests_on_host` is set (with `host_test_path` prepended to PATH); otherwise in a
+    container with no network and no secrets, under the usual resource caps. A worker just wrote the code
+    being run, so it never reaches the host unless the owner opts in.
+    """
+    config = get_config()
+    if config.run_tests_on_host:
+        path = f"{config.host_test_path}:{os.environ['PATH']}" if config.host_test_path else os.environ["PATH"]
+        env = dict(os.environ, PATH=path)
+        return sh(command, cwd=job.work, timeout=600, env=env)
+    return run_shell_in_sandbox(command, job.work)
+
+
 def run_tests(job):
     """Run the job's test command on the worktree. Returns (passed, the tail of the output).
 
     The command runs in a container with no network and no secrets, because it executes code a
     worker just wrote.
     """
-    config = get_config()
-    if config.run_tests_on_host:
-        path = f"{config.host_test_path}:{os.environ['PATH']}" if config.host_test_path else os.environ["PATH"]
-        env = dict(os.environ, PATH=path)
-        code, out, err, wall = sh(job.test_cmd, cwd=job.work, timeout=600, env=env)
-    else:
-        code, out, err, wall = run_shell_in_sandbox(job.test_cmd, job.work)
+    code, out, err, wall = run_command(job, job.test_cmd)
     lines = out.strip().splitlines()
     summary = lines[-1] if lines else err.strip()[-120:]
     job.event("tests", passed=(code == 0), summary=summary[:160], wall_s=wall)

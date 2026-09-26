@@ -1,7 +1,7 @@
 """The pipeline for one job.
 
     clone -> plan (Claude) -> steps (local model; tests after each; Claude rescues a stalled step)
-          -> review (Claude) -> one commit -> gate if public -> push -> report
+          -> review (Claude) -> one commit -> gate if public -> push -> checks -> report
 
 Each finished phase is written to the job's checkpoint (`progress`). A job that was parked at a wait, or
 interrupted by a restart, runs again through `run` and skips what the checkpoint says is finished.
@@ -22,7 +22,7 @@ from offload.prompts import plan_prompt, plan_retry_prompt, rescue_prompt, revie
 from offload.report import diff_stat
 from offload.results import is_approved, is_stuck, is_yes
 from offload.sandbox import sh
-from offload.workers import claude, local_harness, run_tests
+from offload.workers import claude, local_harness, run_command, run_tests
 
 EXIT_OK = 0
 EXIT_SETUP = 2          # no clone, an empty clone, or no plan
@@ -35,6 +35,7 @@ EXIT_NO_CHANGE = 8      # the steps left nothing to commit
 EXIT_EXCEPTION = 9
 EXIT_CANCELLED = 11
 EXIT_PARKED = 10        # `offload run` only: the job waits; run it again when the wait is over
+EXIT_CHECKS = 12        # a spec check exited non-zero after the push
 
 _STEP_LINE_RE = re.compile(r"\s*\d+[.)]")
 _NOT_COMMITTED = [":(exclude)**/__pycache__/**", ":(exclude)*.pyc", ":(exclude).pytest_cache/**"]
@@ -316,8 +317,29 @@ def _commit_and_push(job, base):
     if code != 0:
         job.event("fail", reason=f"git push failed: {err.strip()[-200:]}")
         return EXIT_PUSH
+    checks_code = _run_checks(job)
+    if checks_code != EXIT_OK:
+        return checks_code
     total, _ = job_cost(job.id)
     job.event("done")
     notify(job, f"[{job.id}] done: `{job.branch}` pushed. {change} · cost ${total:.2f} · "
                 f"report: {job.path('REPORT.md')}")
+    return EXIT_OK
+
+
+def _run_checks(job):
+    """The job's spec checks, once each, after the push. One `check` event per command.
+
+    When any check exits non-zero the job fails with reason `checks` and the function returns
+    EXIT_CHECKS: the branch is already out, so there is no Claude call and no retry.
+    """
+    failed = []
+    for command in job.checks:
+        code, out, err, _ = run_command(job, command)
+        job.event("check", command=command, exit=code, output=(out + err)[:500])
+        if code != 0:
+            failed.append(command)
+    if failed:
+        job.event("fail", reason=f"checks: {', '.join(failed)}")
+        return EXIT_CHECKS
     return EXIT_OK

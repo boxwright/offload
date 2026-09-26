@@ -12,6 +12,10 @@ _FRONT_MATTER_RE = re.compile(r"---\n(.*?)\n---\n(.*)", re.S)
 DEFAULT_TEST_CMD = "python3 -m pytest -q"
 
 
+class JobError(Exception):
+    """A job.md that cannot be parsed into a Job. The daemon fails the job; it never takes the loop down."""
+
+
 class Job:
     """One unit of work. `dir` holds its files; `work` is the clone the workers edit."""
 
@@ -22,13 +26,15 @@ class Job:
         self.plan = self.path("plan.md")
         text = read_text(self.path("job.md"))
         match = _FRONT_MATTER_RE.match(text)
-        self.meta = _parse_front_matter(match.group(1)) if match else {}
+        block = match.group(1) if match else ""
+        self.meta = _parse_front_matter(block) if match else {}
         self.body = match.group(2) if match else text
         self.id = self.meta.get("id") or os.path.basename(self.dir)
         self.title = self.meta.get("title", "")
         self.repo = self.meta.get("repo", "")
         self.test_cmd = self.meta.get("test", DEFAULT_TEST_CMD)
         self.branch = self.meta.get("branch", f"offload/{self.id}")
+        self.checks = _parse_checks(block)
 
     def path(self, name):
         return os.path.join(self.dir, name)
@@ -65,11 +71,93 @@ def _parse_front_matter(block):
     return meta
 
 
+def _parse_checks(block):
+    """The optional `checks` key: the spec checks, a list of shell commands.
+
+    Written inline (`checks: [a, b]`) or as indented `- ` lines under a bare `checks:`. Absent -> [].
+    A value that is not a list of non-empty strings raises a JobError naming `checks`.
+    """
+    lines = block.splitlines()
+    for i, line in enumerate(lines):
+        key, sep, rest = line.partition(":")
+        if not sep or key.strip() != "checks":
+            continue
+        value = rest.strip()
+        if value:
+            return _inline_checks(value)
+        items = []
+        for next_line in lines[i + 1:]:
+            if not next_line.startswith(" "):
+                break
+            match = re.match(r"\s*-\s+(.*)", next_line)
+            if match:
+                items.append(match.group(1).strip().strip('"').strip("'"))
+        return _valid_checks(items)
+    return []
+
+
+def _inline_checks(value):
+    """An inline bracketed list: `[a, b]`. Anything else is not a list."""
+    if not (value.startswith("[") and value.endswith("]")):
+        raise JobError(f"checks must be a list of commands, e.g. `checks: [cmd]` (got {value!r})")
+    inner = value[1:-1].strip()
+    if not inner:
+        return []
+    return _valid_checks([item.strip().strip('"').strip("'") for item in inner.split(",")])
+
+
+def _valid_checks(items):
+    for item in items:
+        if not item:
+            raise JobError("checks: every entry must be a non-empty command string")
+    return items
+
+
 def job_dirs(jobs_root, include_hidden=False):
     """Job directories under the root, oldest name first. Names starting with `_` are templates."""
     with os.scandir(jobs_root) as entries:
         names = sorted(entry.name for entry in entries if entry.is_dir())
     return [os.path.join(jobs_root, name) for name in names if include_hidden or not name.startswith("_")]
+
+
+def slugify(text):
+    """A readable id fragment: the ASCII words of `text`, lowercased, joined by hyphens, cut at a word boundary
+    to at most 32 characters. Raises ValueError naming `text` when no ASCII word remains."""
+    slug = ""
+    for word in re.findall(r"[a-z0-9]+", text.lower()):
+        candidate = f"{slug}-{word}" if slug else word
+        if len(candidate) > 32:
+            break
+        slug = candidate
+    if not slug:
+        raise ValueError(f"no ASCII words to slugify in {text!r}")
+    return slug
+
+
+def _next_id(jobs_root, base):
+    """`base`, or `base-2`, `base-3`, ... while a directory of that name exists."""
+    job_id, suffix = base, 1
+    while os.path.exists(os.path.join(jobs_root, job_id)):
+        suffix += 1
+        job_id = f"{base}-{suffix}"
+    return job_id
+
+
+def resolve_job_id(jobs_root, text):
+    """The one job id that `text` names: an exact id, or a prefix that fits exactly one job.
+
+    An exact match wins even when it prefixes other ids. Nothing matching raises KeyError naming `text`;
+    more than one match raises ValueError listing the candidates.
+    """
+    names = [os.path.basename(d) for d in job_dirs(jobs_root)]
+    if text in names:
+        return text
+    matches = sorted(name for name in names if name.startswith(text))
+    if not matches:
+        raise KeyError(text)
+    if len(matches) > 1:
+        raise ValueError(f"ambiguous job id prefix {text!r}: {', '.join(matches)}")
+    return matches[0]
 
 
 def _parse_spec(spec_file):
@@ -81,18 +169,24 @@ def _parse_spec(spec_file):
     return _parse_front_matter(match.group(1)), match.group(2)
 
 
-def add(jobs_root, text, spec_file=None, confirm=False):
+def add(jobs_root, text, spec_file=None, confirm=False, slug=None):
     """Queue a job. A one-line `text` lands in the inbox for intake to draft.
+
+    The id is `j<date>-<slug>` when the title gives a slug (a spec file's title, or `slug`), else the
+    `j<date>-<time>` stamp, because a one-liner has no title until intake runs; either way `-2`, `-3`, ...
+    while the directory exists. A job directory is never renamed later.
 
     A `job.md`-style `spec_file` is copied straight into the new job's `job.md` with its
     `id`/`branch`/`test` filled in and the status set to `ready`, so intake's Claude call is
     skipped. `confirm=True` writes `confirm: true` into the front matter on either path.
     """
-    stamp = time.strftime("j%Y%m%d-%H%M%S")
-    job_id, suffix = stamp, 1
-    while os.path.exists(os.path.join(jobs_root, job_id)):
-        suffix += 1
-        job_id = f"{stamp}-{suffix}"
+    if spec_file is not None and slug is None:
+        try:
+            slug = slugify(_parse_spec(spec_file)[0].get("title", ""))
+        except ValueError:
+            slug = None
+    base = f"j{time.strftime('%Y%m%d')}-{slug}" if slug else time.strftime("j%Y%m%d-%H%M%S")
+    job_id = _next_id(jobs_root, base)
     job_dir = os.path.join(jobs_root, job_id)
     os.makedirs(job_dir)
     if spec_file is not None:
