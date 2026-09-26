@@ -6,7 +6,8 @@
   set, the daemon reads the channel every 30 seconds while a job waits for the owner, accepts a reply from the
   owner's user id only, writes it as the job's answer, and reacts with a check mark. Start the reply with the job id
   when more than one job is waiting. Nothing listens on the network; the daemon makes outbound requests, only while
-  a gate is open. Without the token, nothing changes.
+  a gate is open. Without the token, nothing changes. Proven live 2026-09-26: question posted 08:21:31, the owner's
+  `Yes` read from the channel 08:23:32, check mark added, job done 08:25:11 (`evidence/j20260926-082131`).
 
 ## 0.1.1 — 2026-09-24
 

@@ -177,6 +177,8 @@ def _collect_answers(jobs_root, inbox):
     after = max(_last_message_id, inbound.snowflake_after(asked))
     written = 0
     for message in inbox.messages_after(after):
+        if not gates:
+            break                     # every open gate has its answer; later messages belong to nobody yet
         _last_message_id = max(_last_message_id, int(message["id"]))
         job_dir, result = _match_gate(gates, message["text"])
         if job_dir is None:

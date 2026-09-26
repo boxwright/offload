@@ -377,3 +377,25 @@ def test_ask_owner_says_reply_on_the_engine_host_when_not_configured(settings, t
         notify.ask_owner(job, "publish", "Push to main?")
     assert posted and posted[-1].endswith(
         f"Reply on the engine host: `offload answer {job.dir} \"yes\"` (or no, or your own text)")
+
+
+def test_a_message_after_the_last_gate_is_answered_does_not_crash_the_poll(settings, tmp_path, monkeypatch):
+    """Live on 2026-09-26: a second message in the same batch, after the only gate was consumed, raised IndexError."""
+    from offload import daemon, status
+    gate = make_job_dir(tmp_path / "jobs", "only", {"id": "only", "repo": "/r.git"})
+    status.set_status(gate, status.WAITING_OWNER, gate="confirm", deadline=time.time() + 60)
+
+    class Inbox:
+        acked = []
+
+        def messages_after(self, after):
+            return [{"id": "1", "text": "yes", "ts": ""}, {"id": "2", "text": "thanks", "ts": ""}]
+
+        def acknowledge(self, message_id):
+            self.acked.append(message_id)
+            return True
+    daemon._last_poll = 0.0
+    daemon._last_message_id = 0
+    assert daemon._collect_answers(tmp_path / "jobs", Inbox()) == 1
+    assert Inbox.acked == ["1"]
+    assert daemon._last_message_id == 1
